@@ -31,8 +31,7 @@ func TestRequestEncoding(t *testing.T) {
 }
 
 func TestRequestResponse(t *testing.T) {
-	perform := func(req *api.Request) (res *api.Response) {
-		res = &api.Response{}
+	perform := func(req *api.Request) (res api.Response) {
 		if req.Action == "HEJ" {
 			res.Success(&struct {
 				Msg string

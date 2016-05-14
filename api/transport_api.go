@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 type ErrorStatus int64
@@ -9,6 +10,10 @@ type ErrorStatus int64
 type ErrorHolder struct {
 	Status  ErrorStatus
 	Message string
+}
+
+func (eh *ErrorHolder) Error() string {
+	return fmt.Sprintf("{\"status\": %d, \"message\": \"%s\"}", eh.Status, eh.Message)
 }
 
 type Response struct {
@@ -30,6 +35,10 @@ func (ar *Response) Success(res interface{}) {
 	}
 }
 
+func (ar *Response) IsError() bool {
+	return ar.Error != nil
+}
+
 type Request struct {
 	Action string          // GET or POST
 	Path   string          // Request path
@@ -38,18 +47,21 @@ type Request struct {
 
 func NewRequest(action, path string, query interface{}) (req *Request, err error) {
 	req = &Request{Action: action, Path: path}
-	req.Query, err = json.Marshal(query)
+	if query != nil {
+		req.Query, err = json.Marshal(query)
+	}
+	fmt.Printf("Request %+v\n", req)
 	return
 }
 
 // Invoke the request. If there is an error, it should be set in the response struct
-type Preform func(*Request) *Response
+type Preform func(*Request) Response
 
 type PreformHandler interface {
-	Preform(*Request) *Response
+	Preform(*Request) Response
 }
 
 // Let the func implement the handler
-func (p Preform) Preform(req *Request) *Response {
+func (p Preform) Preform(req *Request) Response {
 	return p(req)
 }
