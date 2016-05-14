@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Instrument struct {
 	InstrumentId        int64            `json:"instrument_id,omitempty"`
 	Tradables           []Tradable       `json:"tradables,omitempty"`

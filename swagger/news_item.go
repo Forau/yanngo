@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type NewsItem struct {
 	NewsId      int64   `json:"news_id,omitempty"`
 	SourceId    int64   `json:"source_id,omitempty"`

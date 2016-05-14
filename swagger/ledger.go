@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Ledger struct {
 	Currency      string `json:"currency,omitempty"`
 	AccountSum    Amount `json:"account_sum,omitempty"`

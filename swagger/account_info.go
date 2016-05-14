@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type AccountInfo struct {
 	AccountCurrency            string `json:"account_currency,omitempty"`
 	AccountCredit              Amount `json:"account_credit,omitempty"`

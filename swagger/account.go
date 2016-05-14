@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Account struct {
 	Accno         int64  `json:"accno,omitempty"`
 	Typ           string `json:"type,omitempty"`

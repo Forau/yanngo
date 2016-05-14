@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Order struct {
 	Accno               int64               `json:"accno,omitempty"`
 	OrderId             int64               `json:"order_id,omitempty"`

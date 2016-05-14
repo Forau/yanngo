@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Indicator struct {
 	Name         string `json:"name,omitempty"`
 	Src          string `json:"src,omitempty"`

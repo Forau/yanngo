@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type TradableInfo struct {
 	MarketId   int64         `json:"market_id,omitempty"`
 	Identifier string        `json:"identifier,omitempty"`

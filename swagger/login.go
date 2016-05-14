@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Login struct {
 	Environment string `json:"environment,omitempty"`
 	SessionKey  string `json:"session_key,omitempty"`

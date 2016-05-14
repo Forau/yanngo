@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type List struct {
 	Symbol       string `json:"symbol,omitempty"`
 	DisplayOrder int64  `json:"display_order,omitempty"`

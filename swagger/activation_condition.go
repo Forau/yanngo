@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type ActivationCondition struct {
 	Typ              string  `json:"type,omitempty"`
 	TrailingValue    float64 `json:"trailing_value,omitempty"`

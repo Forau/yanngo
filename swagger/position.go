@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type Position struct {
 	Accno          int32      `json:"accno,omitempty"`
 	Instrument     Instrument `json:"instrument,omitempty"`

@@ -1,3 +1,4 @@
+// Contains generated structs from https://api.test.nordnet.se/next/2/api-docs/swagger
 package swagger
 
 import (

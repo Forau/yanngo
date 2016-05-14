@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type TicksizeInterval struct {
 	Decimals  int64   `json:"decimals,omitempty"`
 	FromPrice float64 `json:"from_price,omitempty"`

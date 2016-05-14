@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type LeverageFilter struct {
 	Issuers              []Issuer `json:"issuers,omitempty"`
 	MarketView           []string `json:"market_view,omitempty"`

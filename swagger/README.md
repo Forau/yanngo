@@ -16,4 +16,5 @@ And rename attributes ending with _.
 
   $ sed -i 's/Type_/Typ/g' *.go
   $ sed -i 's/Default_/IsDefault/g' *.go
-  $ go fmt
+  $ gofmt -s -w *.go
+  

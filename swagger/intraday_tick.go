@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type IntradayTick struct {
 	Timestamp  int32   `json:"timestamp,omitempty"`
 	Last       float64 `json:"last,omitempty"`

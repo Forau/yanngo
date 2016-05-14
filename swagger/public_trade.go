@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type PublicTrade struct {
 	BrokerBuying  string  `json:"broker_buying,omitempty"`
 	BrokerSelling string  `json:"broker_selling,omitempty"`

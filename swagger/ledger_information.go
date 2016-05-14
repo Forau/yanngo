@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type LedgerInformation struct {
 	TotalAccIntDeb  Amount   `json:"total_acc_int_deb,omitempty"`
 	TotalAccIntCred Amount   `json:"total_acc_int_cred,omitempty"`

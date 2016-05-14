@@ -1,7 +1,5 @@
 package swagger
 
-import ()
-
 type OrderReply struct {
 	OrderId     int64  `json:"order_id,omitempty"`
 	ResultCode  string `json:"result_code,omitempty"`
