@@ -7,7 +7,7 @@ import (
 
 func TestGetAccounts(t *testing.T) {
 	cli := api.NewApiClient(func(req *api.Request) (res api.Response) {
-		if req.Command == "Accounts" {
+		if req.Command == api.AccountsCmd {
 			res.Payload = []byte(`[{"accno": 12345}]`)
 		}
 		return

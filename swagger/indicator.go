@@ -11,7 +11,7 @@ type Indicator struct {
 	Open         string `json:"open,omitempty"`
 	Close        string `json:"close,omitempty"`
 	Country      string `json:"country,omitempty"`
-	Type_        string `json:"type,omitempty"`
+	Typ          string `json:"type,omitempty"`
 	Region       string `json:"region,omitempty"`
 	InstrumentId int64  `json:"instrument_id,omitempty"`
 }
