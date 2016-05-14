@@ -5,19 +5,19 @@ import (
 	"testing"
 )
 
-func TestLoggedInStatus(t *testing.T) {
+func TestGetAccounts(t *testing.T) {
 	cli := api.NewApiClient(func(req *api.Request) (res api.Response) {
-		if req.Path == "/login" {
-			res.Payload = []byte(`{"logged_in": true}`)
+		if req.Command == "Accounts" {
+			res.Payload = []byte(`[{"accno": 12345}]`)
 		}
 		return
 	})
 
-	res, err := cli.LoginStatus()
+	res, err := cli.Accounts()
 	t.Log("Res: ", res, ", Err: ", err)
 	if err != nil {
 		t.Error(err)
-	} else if !res.LoggedIn {
-		t.Error("Expected LoginStatus to be true")
+	} else if len(res) < 1 {
+		t.Error("Expected to get an account back")
 	}
 }

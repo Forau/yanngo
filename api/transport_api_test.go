@@ -7,7 +7,7 @@ import (
 )
 
 func TestRequestEncoding(t *testing.T) {
-	req, err := api.NewRequest("GET", "/test", &struct {
+	req, err := api.NewRequest("TestRequest", &struct {
 		Name   string
 		Status float64 `json:"status"`
 	}{Name: "TestName", Status: 42})
@@ -32,7 +32,7 @@ func TestRequestEncoding(t *testing.T) {
 
 func TestRequestResponse(t *testing.T) {
 	perform := func(req *api.Request) (res api.Response) {
-		if req.Action == "HEJ" {
+		if req.Command == "TestRequest" {
 			res.Success(&struct {
 				Msg string
 			}{"All is well"})
@@ -42,7 +42,7 @@ func TestRequestResponse(t *testing.T) {
 		return
 	}
 
-	req, err := api.NewRequest("HEJ", "/test", &struct {
+	req, err := api.NewRequest("TestRequest", &struct {
 		Data string
 	}{Data: "TestData"})
 	if err != nil {
@@ -57,7 +57,7 @@ func TestRequestResponse(t *testing.T) {
 		t.Error("Expected no error, but got ", res.Error)
 	}
 
-	req, err = api.NewRequest("WRONG", "/test", &struct{}{})
+	req, err = api.NewRequest("WRONGRequest", &struct{}{})
 	if err != nil {
 		t.Error(err)
 	}
