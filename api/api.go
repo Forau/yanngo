@@ -6,10 +6,10 @@ import (
 )
 
 type ApiClient struct {
-	ph PreformHandler
+	ph TransportHandler
 }
 
-func NewApiClient(ph Preform) *ApiClient {
+func NewApiClient(ph Transport) *ApiClient {
 	return &ApiClient{ph: ph}
 }
 

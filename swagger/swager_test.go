@@ -53,12 +53,12 @@ func TestCreateEmptyObjects(t *testing.T) {
 		&swagger.Validity{},
 	}
 
-  for _,itm := range arr {
-    data,err := json.Marshal(itm)
-    if err != nil {
-      t.Errorf("Unable to marshal struct %+v -> %+v", itm, err)
-    } else {
-      t.Log(string(data))
-    }
-  }
+	for _, itm := range arr {
+		data, err := json.Marshal(itm)
+		if err != nil {
+			t.Errorf("Unable to marshal struct %+v -> %+v", itm, err)
+		} else {
+			t.Log(string(data))
+		}
+	}
 }

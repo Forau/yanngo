@@ -55,13 +55,13 @@ func NewRequest(action, path string, query interface{}) (req *Request, err error
 }
 
 // Invoke the request. If there is an error, it should be set in the response struct
-type Preform func(*Request) Response
+type Transport func(*Request) Response
 
-type PreformHandler interface {
+type TransportHandler interface {
 	Preform(*Request) Response
 }
 
 // Let the func implement the handler
-func (p Preform) Preform(req *Request) Response {
+func (p Transport) Preform(req *Request) Response {
 	return p(req)
 }
