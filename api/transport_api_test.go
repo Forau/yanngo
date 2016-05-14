@@ -1,8 +1,8 @@
 package api_test
 
 import (
-	api "."
 	"encoding/json"
+	"github.com/Forau/yanngo/api"
 	"testing"
 )
 
