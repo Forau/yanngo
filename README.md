@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/Forau/yanngo)](https://goreportcard.com/report/github.com/Forau/yanngo)
+[![Build Status](https://travis-ci.org/Forau/yanngo.svg?branch=master)](https://travis-ci.org/Forau/yanngo)
 # yanngo
 Yet Another NordNet Go API
 
@@ -11,3 +13,8 @@ However, I have not make pull-request since I am not sure thats the direction mo
 I do not want my client's to need to know my login to nordnet. They only need credentials to my daemon.  Also, since we should not create many sessions to nordnet, the daemon needs to keep track of more information, and provide a slightly different api to the clients.
 
 
+## Folder structure
+
+The reason for making sub packages is to keep it easy for removing third party dependencies.
+There will be a few third party liberies in the default build, but the parts with the dependencies will be easily replaced if needed / wanted.
+There will also be some packages for optional features, to avoid the dependencies being linked in if not used.

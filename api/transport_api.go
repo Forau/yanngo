@@ -94,7 +94,9 @@ type Request struct {
 }
 
 func (r *Request) QueryMap() (res map[string]interface{}, err error) {
-	err = json.Unmarshal(r.Query, &res)
+	if r.Query != nil {
+		err = json.Unmarshal(r.Query, &res)
+	}
 	return
 }
 
