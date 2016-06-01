@@ -6,12 +6,13 @@ import (
 )
 
 func TestGetAccounts(t *testing.T) {
-	cli := api.NewApiClient(func(req *api.Request) (res api.Response) {
+	var transporth api.Transport = func(req *api.Request) (res api.Response) {
 		if req.Command == api.AccountsCmd {
 			res.Payload = []byte(`[{"accno": 12345}]`)
 		}
 		return
-	})
+	}
+	cli := api.NewApiClient(transporth)
 
 	res, err := cli.Accounts()
 	t.Log("Res: ", res, ", Err: ", err)

@@ -9,16 +9,15 @@ import (
 	"os"
 
 	"fmt"
-
-	"net/http/httputil"
 )
 
 type RestError struct {
-	Msg string
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 func (re RestError) Error() string {
-	return re.Msg
+	return fmt.Sprintf(`{"code": "%s", "message": "%s"}`, re.Code, re.Message)
 }
 
 func convertToStringMap(in map[string]interface{}) map[string]string {
@@ -59,22 +58,14 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 	rc.restyCli = resty.New().SetLogger(logFile).SetDebug(true).SetHostURL(uri).SetHeaders(map[string]string{
 		"Accept":          "application/json",
 		"Accept-Language": "en",
-	})
-
-	logDataOrError := func(data []byte, err error) {
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(string(data))
-		}
-	}
+	}).SetError(RestError{})
 
 	rc.restyCli.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
-		logDataOrError(httputil.DumpRequest(r.RawRequest, true))
+		fmt.Printf(">>> %p >>> %s %s: %v\n", r, r.Method, r.URL, r.RawRequest.Body)
 		return nil
 	})
 	rc.restyCli.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
-		logDataOrError(httputil.DumpResponse(r.RawResponse, true))
+		fmt.Printf("<<< %p <<< %s [%s]: %v\n", r.Request, r.Status(), r.Time(), r)
 		return nil
 	})
 
@@ -82,39 +73,34 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 }
 
 func (rc *RestClient) Execute(method, path string, payload map[string]interface{}) (json.RawMessage, error) {
-	// Allow for one retry
-	for i := 1; i > 0; i-- {
-		sess, err := rc.GetSession()
-		if err != nil {
-			fmt.Printf("Login error: %+v\n", err)
-			return nil, err
-		}
-		req := rc.restyCli.R()
-		req.SetBasicAuth(sess.SessionKey, sess.SessionKey)
+	sess, err := rc.GetSession()
+	if err != nil {
+		fmt.Printf("Login error: %+v\n", err)
+		return nil, err
+	}
 
-		if payload != nil {
+	// For very special calls.  Initially to get the session without calling the server again.
+	if method == "SPECIAL" {
+		if path == "session" {
+			return json.Marshal(sess)
+		}
+		return nil, fmt.Errorf("No special command '%s'", path)
+	}
+
+	req := rc.restyCli.R().SetBasicAuth(sess.SessionKey, sess.SessionKey)
+	if payload != nil {
+		if method == "POST" || method == "PUT" {
 			req.SetFormData(convertToStringMap(payload))
-		}
-		fmt.Printf("About to execute %+v with %s on %s\n", req, method, path)
-		resp, err := req.Execute(method, path)
-		if err != nil {
-			fmt.Printf("Got error %+v\n", err)
-			return nil, err
-		}
-		fmt.Printf("Got response %+v\n", resp)
-
-		switch resp.StatusCode() {
-		case 401:
-			rc.session = nil // To force a login
-		case 200, 201, 202, 203, 204:
-			return resp.Body(), nil
-		default:
-			// All errors not specifically taken care of before.
-			err := &RestError{string(resp.Body())}
-			return nil, err
+		} else {
+			req.SetQueryParams(convertToStringMap(payload))
 		}
 	}
-	return nil, &RestError{"Too many resends"}
+	fmt.Printf("About to execute %+v with %s on %s\n", req, method, path)
+	resp, err := req.Execute(method, path)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body(), nil
 }
 
 func (rc *RestClient) GetSession() (*swagger.Login, error) {
@@ -126,20 +112,17 @@ func (rc *RestClient) GetSession() (*swagger.Login, error) {
 
 	auth, err := rc.generate()
 	if err == nil {
-		resp, err := rc.restyCli.R().
+		tmpSess := &swagger.Login{}
+		_, err := rc.restyCli.R().
 			SetFormData(map[string]string{"auth": auth, "service": "NEXTAPI"}).
+			SetResult(&tmpSess).
 			Post("/login")
 
 		if err != nil {
 			fmt.Println("Login error ", err)
 			return nil, err
 		}
-		fmt.Printf("LOGIN %+v\n", resp)
-		tmpSess := &swagger.Login{}
-		err = json.Unmarshal(resp.Body(), tmpSess)
-		if err != nil {
-			return nil, err
-		}
+		fmt.Printf("LOGIN %+v\n", tmpSess)
 		rc.session = tmpSess
 	}
 

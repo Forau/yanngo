@@ -43,10 +43,7 @@ type RequestCommand string
 
 // The commands that we support.  Will be mapped in the low level TransportHandler
 const (
-	SystemStatusCmd                RequestCommand = "SystemStatus"
-	LoginCmd                       RequestCommand = "Login" // Login commands will be replaces and not visible in the api
-	LogoutCmd                      RequestCommand = "Logout"
-	TouchCmd                       RequestCommand = "Touch"
+	SessionCmd                     RequestCommand = "Session"
 	AccountsCmd                    RequestCommand = "Accounts"
 	AccountCmd                     RequestCommand = "Account"
 	AccountLedgersCmd              RequestCommand = "AccountLedgers"
@@ -58,24 +55,20 @@ const (
 	AccountPositionsCmd            RequestCommand = "AccountPositions"
 	AccountTradesCmd               RequestCommand = "AccountTrades"
 	CountriesCmd                   RequestCommand = "Countries"
-	LookupCountriesCmd             RequestCommand = "LookupCountries"
 	IndicatorsCmd                  RequestCommand = "Indicators"
-	LookupIndicatorsCmd            RequestCommand = "LookupIndicators"
-	SearchInstrumentsCmd           RequestCommand = "SearchInstruments"
 	InstrumentsCmd                 RequestCommand = "Instruments"
+	InstrumentSearchCmd            RequestCommand = "InstrumentSearch"
+	InstrumentLookupCmd            RequestCommand = "InstrumentLookup"
 	InstrumentLeveragesCmd         RequestCommand = "InstrumentLeverages"
 	InstrumentLeverageFiltersCmd   RequestCommand = "InstrumentLeverageFilters"
 	InstrumentOptionPairsCmd       RequestCommand = "InstrumentOptionPairs"
 	InstrumentOptionPairFiltersCmd RequestCommand = "InstrumentOptionPairFilters"
-	InstrumentLookupCmd            RequestCommand = "InstrumentLookup"
 	InstrumentSectorsCmd           RequestCommand = "InstrumentSectors"
 	InstrumentSectorCmd            RequestCommand = "InstrumentSector"
 	InstrumentTypesCmd             RequestCommand = "InstrumentTypes"
-	InstrumentTypeCmd              RequestCommand = "InstrumentType"
 	InstrumentUnderlyingsCmd       RequestCommand = "InstrumentUnderlyings"
 	ListsCmd                       RequestCommand = "Lists"
 	ListCmd                        RequestCommand = "List"
-	MarketsCmd                     RequestCommand = "Markets"
 	MarketCmd                      RequestCommand = "Market"
 	SearchNewsCmd                  RequestCommand = "SearchNews"
 	NewsCmd                        RequestCommand = "News"
@@ -105,7 +98,7 @@ func NewRequest(command RequestCommand, query interface{}) (req *Request, err er
 	if query != nil {
 		req.Query, err = json.Marshal(query)
 	}
-	fmt.Printf("Request %+v\n", req)
+	fmt.Printf("Request %s -> %s\n", req.Command, string(req.Query))
 	return
 }
 
