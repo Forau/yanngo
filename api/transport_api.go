@@ -81,24 +81,22 @@ const (
 	TradableTradesCmd              RequestCommand = "TradableTrades"
 )
 
+type Params map[string]string
+
 type Request struct {
 	Command RequestCommand
-	Query   json.RawMessage // Will get unmashaled and converted to query or form params
+	Params  Params
 }
 
-func (r *Request) QueryMap() (res map[string]interface{}, err error) {
-	if r.Query != nil {
-		err = json.Unmarshal(r.Query, &res)
+func NewRequest(command RequestCommand, params map[string]string) (req *Request, err error) {
+	req = &Request{Command: command, Params: Params{}}
+	if params != nil {
+		for k, v := range params {
+			req.Params[k] = v
+		}
 	}
-	return
-}
 
-func NewRequest(command RequestCommand, query interface{}) (req *Request, err error) {
-	req = &Request{Command: command}
-	if query != nil {
-		req.Query, err = json.Marshal(query)
-	}
-	fmt.Printf("Request %s -> %s\n", req.Command, string(req.Query))
+	fmt.Printf("Request %s -> %s\n", req.Command, req.Params)
 	return
 }
 

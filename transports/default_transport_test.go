@@ -22,7 +22,7 @@ func init() {
 	}
 }
 
-func genCmd(cmd api.RequestCommand, q interface{}) *api.Request {
+func genCmd(cmd api.RequestCommand, q map[string]string) *api.Request {
 	req, err := api.NewRequest(cmd, q)
 	if err != nil {
 		panic(err)
@@ -44,7 +44,7 @@ func TestCommands(t *testing.T) {
 		genCmd(api.CreateOrderCmd, nil),
 		genCmd(api.ActivateOrderCmd, nil),
 		genCmd(api.UpdateOrderCmd, nil),
-		genCmd(api.DeleteOrderCmd, map[string]int{"Accno": 123, "Id": 321}),
+		genCmd(api.DeleteOrderCmd, map[string]string{"Accno": "123", "Id": "321"}),
 		genCmd(api.AccountPositionsCmd, nil),
 		genCmd(api.AccountTradesCmd, nil),
 		genCmd(api.CountriesCmd, nil),

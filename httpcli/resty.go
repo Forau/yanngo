@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"fmt"
+	"time"
 )
 
 type RestError struct {
@@ -44,6 +45,8 @@ type RestClient struct {
 
 	generate crypto.GenerateCredentials
 	session  *swagger.Login
+
+	lastSuccess time.Time
 }
 
 func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
@@ -58,21 +61,34 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 	rc.restyCli = resty.New().SetLogger(logFile).SetDebug(true).SetHostURL(uri).SetHeaders(map[string]string{
 		"Accept":          "application/json",
 		"Accept-Language": "en",
-	}).SetError(RestError{})
+	})
 
 	rc.restyCli.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
 		fmt.Printf(">>> %p >>> %s %s: %v\n", r, r.Method, r.URL, r.RawRequest.Body)
 		return nil
 	})
 	rc.restyCli.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
-		fmt.Printf("<<< %p <<< %s [%s]: %v\n", r.Request, r.Status(), r.Time(), r)
+		fmt.Printf("<<< %p <<< %s [%s : %v]: %v\n", r.Request, r.Status(), r.Time(), r.Error(), r)
+		if r.StatusCode() < 300 {
+			rc.lastSuccess = time.Now()
+		}
 		return nil
 	})
+
+	go func() {
+		// If we close, nil restCli
+		for rc.restyCli != nil {
+			time.Sleep(60000 * time.Millisecond)
+			if time.Now().Unix() > (60 + rc.lastSuccess.Unix()) {
+				rc.Execute("PUT", "login", nil) // Touch session
+			}
+		}
+	}()
 
 	return rc
 }
 
-func (rc *RestClient) Execute(method, path string, payload map[string]interface{}) (json.RawMessage, error) {
+func (rc *RestClient) Execute(method, path string, payload map[string]string) (json.RawMessage, error) {
 	sess, err := rc.GetSession()
 	if err != nil {
 		fmt.Printf("Login error: %+v\n", err)
@@ -87,18 +103,31 @@ func (rc *RestClient) Execute(method, path string, payload map[string]interface{
 		return nil, fmt.Errorf("No special command '%s'", path)
 	}
 
-	req := rc.restyCli.R().SetBasicAuth(sess.SessionKey, sess.SessionKey)
+	restError := RestError{}
+	req := rc.restyCli.R().SetBasicAuth(sess.SessionKey, sess.SessionKey).SetError(&restError)
 	if payload != nil {
 		if method == "POST" || method == "PUT" {
-			req.SetFormData(convertToStringMap(payload))
+			req.SetFormData(payload)
 		} else {
-			req.SetQueryParams(convertToStringMap(payload))
+			req.SetQueryParams(payload)
 		}
 	}
+
 	fmt.Printf("About to execute %+v with %s on %s\n", req, method, path)
 	resp, err := req.Execute(method, path)
 	if err != nil {
+		fmt.Println("HTTP-error: ", err)
 		return nil, err
+	}
+	if restError.Code != "" {
+		fmt.Println("REST-error: ", restError)
+		if restError.Code == "NEXT_INVALID_SESSION" {
+			if sess == rc.session {
+				rc.session = nil
+			}
+			return rc.Execute(method, path, payload) // TODO: Make sure we cant loop
+		}
+		return nil, restError
 	}
 	return resp.Body(), nil
 }
@@ -125,6 +154,5 @@ func (rc *RestClient) GetSession() (*swagger.Login, error) {
 		fmt.Printf("LOGIN %+v\n", tmpSess)
 		rc.session = tmpSess
 	}
-
 	return rc.session, nil
 }

@@ -1,31 +1,23 @@
 package api_test
 
 import (
-	"encoding/json"
 	"github.com/Forau/yanngo/api"
 	"testing"
 )
 
 func TestRequestEncoding(t *testing.T) {
-	req, err := api.NewRequest("TestRequest", &struct {
-		Name   string
-		Status float64 `json:"status"`
-	}{Name: "TestName", Status: 42})
+	req, err := api.NewRequest("TestRequest", map[string]string{"Name": "TestName", "status": "42"})
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(req)
 
-	resMap := make(map[string]interface{})
-	err = json.Unmarshal(req.Query, &resMap)
-	if err != nil {
-		t.Error(err)
-	}
+	resMap := req.Params
 	t.Logf("Res: %+v\n", resMap)
 	if resMap["Name"] != "TestName" {
 		t.Error("Expected 'TestName' as name, but got ", resMap["Name"])
 	}
-	if resMap["status"] != 42.0 {
+	if resMap["status"] != "42" {
 		t.Errorf("Expected '42' as status, but got %+v as %T", resMap["status"], resMap["status"])
 	}
 }
@@ -42,9 +34,7 @@ func TestRequestResponse(t *testing.T) {
 		return
 	}
 
-	req, err := api.NewRequest("TestRequest", &struct {
-		Data string
-	}{Data: "TestData"})
+	req, err := api.NewRequest("TestRequest", map[string]string{"Data": "TestData"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,7 +47,7 @@ func TestRequestResponse(t *testing.T) {
 		t.Error("Expected no error, but got ", res.Error)
 	}
 
-	req, err = api.NewRequest("WRONGRequest", &struct{}{})
+	req, err = api.NewRequest("WRONGRequest", nil)
 	if err != nil {
 		t.Error(err)
 	}

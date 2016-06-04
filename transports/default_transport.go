@@ -71,11 +71,11 @@ type commandMapper struct {
 }
 
 // For now we use template, but later we might add logic to have a static field to save resources
-func (cm *commandMapper) execute(in map[string]interface{}) string {
+func (cm *commandMapper) execute(in map[string]string) string {
 	if len(cm.pathParts) > 0 {
 		vals := []interface{}{}
 		for _, k := range cm.pathParts {
-			vals = append(vals, k.conv(in[k.key]))
+			vals = append(vals, in[k.key])
 			delete(in, k.key)
 		}
 		return fmt.Sprintf(cm.path, vals...)
@@ -98,9 +98,9 @@ var CommandTemplates = map[api.RequestCommand]*commandMapper{
 	api.AccountLedgersCmd:              newCommandMapper("GET", "accounts/%s/ledgers", []pathMap{pathMap{"accno", fmtInt}}),
 	api.AccountOrdersCmd:               newCommandMapper("GET", "accounts/%s/orders", []pathMap{pathMap{"accno", fmtInt}}),
 	api.CreateOrderCmd:                 newCommandMapper("POST", "accounts/%s/orders", []pathMap{pathMap{"accno", fmtInt}}),
-	api.ActivateOrderCmd:               newCommandMapper("PUT", "accounts/%s/orders/%s/activate", []pathMap{pathMap{"accno", fmtInt}, pathMap{"id", fmtInt}}),
-	api.UpdateOrderCmd:                 newCommandMapper("PUT", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"id", fmtInt}}),
-	api.DeleteOrderCmd:                 newCommandMapper("DELETE", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"id", fmtInt}}),
+	api.ActivateOrderCmd:               newCommandMapper("PUT", "accounts/%s/orders/%s/activate", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
+	api.UpdateOrderCmd:                 newCommandMapper("PUT", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
+	api.DeleteOrderCmd:                 newCommandMapper("DELETE", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
 	api.AccountPositionsCmd:            newCommandMapper("GET", "accounts/%s/positions", []pathMap{pathMap{"accno", fmtInt}}),
 	api.AccountTradesCmd:               newCommandMapper("GET", "accounts/%s/trades", []pathMap{pathMap{"accno", fmtInt}}),
 	api.CountriesCmd:                   newCommandMapper("GET", "countries/%s", []pathMap{pathMap{"countries", fmtStrArr}}),
@@ -141,14 +141,10 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		}()
 
 		if templ := CommandTemplates[req.Command]; templ != nil {
-			qmap, err := req.QueryMap()
-			if err != nil {
-				fmt.Printf("Error getting query map [%+v]: %+v\n", req, err)
-				panic(err) // TODO: fix
-			}
+			qmap := req.Params
 			path := templ.execute(qmap)
 
-			fmt.Printf("Got my path: %+v\n", path)
+			fmt.Printf("Got my path: %+v, and data %+v\n", path, qmap)
 			resp, err := restcli.Execute(templ.action, path, qmap)
 			fmt.Printf("Res : %+v -> %+v\n", res, err)
 			if err != nil {
