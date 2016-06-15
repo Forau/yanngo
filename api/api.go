@@ -1,3 +1,6 @@
+// Copyright (c) 2016 Forau @ github.com. MIT License.
+
+// Package api contains definitions for the client and transports
 package api
 
 import (

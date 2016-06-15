@@ -1,3 +1,4 @@
+// Go-RPC is a bare bone implementation to make transports 'rpcable'.  Is depricated now in favour of yanngo/remote package.
 package gorpc
 
 import (

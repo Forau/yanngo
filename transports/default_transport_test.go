@@ -30,6 +30,7 @@ func genCmd(cmd api.RequestCommand, q map[string]string) *api.Request {
 	return req
 }
 
+// TODO: mocking
 func TestCommands(t *testing.T) {
 	tr, err := transports.NewDefaultTransport("end", []byte("kalle"), []byte("hemlig"), pemData)
 	if err != nil {

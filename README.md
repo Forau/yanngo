@@ -22,5 +22,22 @@ There will also be some packages for optional features, to avoid the dependencie
 ## Status
 
 Under heavy development. Do not use straight of for now.  Everything can change without notice. Version 0.0.0b.
-
 I am also making this for myself, so focus is gettign all featurs in, and thus some tests and documentation is lacking.
+
+Currently there is a redesign under way..
+
+* api - Interfaces for the api and transports
+* crypto - Helper functions for credentials
+* example - Examples
+..* nordnetd - The first go-RPC based daemon
+..* nordnetc - The first go-RPC based client
+..* nsqnnd - New structured deamon, with nsq as eventbus
+..* nsqnnc - New structured client, with nsq as eventbus
+* feed - Basic feed.  (Will have some redesign)
+..* nsqfeeder - Feed over NSQ.  This will be replaced by generic api from 'remote'
+* httpcli - Http-client helper.  Current implementation depends on resty, but a pure standard one would be an easy change.
+* remote - Interfaces to unify remote calls, like RPC or eventbus'es. Wrappers to provide functionality for unificatgion.
+..* nsqconn - Providing what is needed for the 'remote' interfaces when using NSQ as channel.
+* swagger - Generated swagger model. Only scripted changes, so it can be updated if nordnet changes its api.
+* transports - Implementation of api/transports interface.
+..* gorpc - Legacy go-rpc transport implimentation. Will be replaced with remotes.

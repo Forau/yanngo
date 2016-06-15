@@ -2,25 +2,39 @@ package main
 
 import (
 	"github.com/Forau/gocop"
-	"github.com/Forau/yanngo/api"
-	"github.com/Forau/yanngo/feed"
-	"github.com/Forau/yanngo/transports/gorpc"
 
+	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/remote"
+	"github.com/Forau/yanngo/remote/nsqconn"
+	//	"github.com/Forau/yanngo/feed/nsqfeeder"
+	"github.com/Forau/yanngo/transports"
+
+	//	"io/ioutil"
+	"bytes"
 	"encoding/json"
 	"github.com/ugorji/go/codec"
+	"os"
 
-	"bytes"
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 )
 
-var (
-	srv = flag.String("srv", ":2008", "RPC server to bind to. The address daemon is bound to")
+// For multiple flags
+type StringArray []string
 
-	feedApi *feed.FeedDaemon
+func (a *StringArray) Set(s string) error {
+	*a = append(*a, s)
+	return nil
+}
+func (a *StringArray) String() string {
+	return strings.Join(*a, ",")
+}
+
+var (
+	topic = flag.String("topic", "nordnet.api", "Topic server's API is listening on")
+	inbox = flag.String("inbox", "", "Topic the client listens on. Use for debugging.  If not set, random is provided")
 )
 
 func printResult(in interface{}, err error) {
@@ -74,37 +88,55 @@ func toStrArr(in string) (res []string) {
 	return strings.Split(in, " ")
 }
 
-// WARNING: This is _not_ intended for the client, it will be a server based operation
-func createFeeds(api *api.ApiClient) (*feed.FeedDaemon, error) {
-	var err error
-	if feedApi == nil {
-		feedApi, err = feed.NewFeedDaemonAPI(api)
-	}
-	return feedApi, err
-}
-
 func main() {
+	var nsqIps StringArray
+	flag.Var(&nsqIps, "nsqd", "NSQD ip's. (Can be used multiple times for each nsqd)")
+
 	flag.Parse()
 
-	rpctransp := gorpc.NewRpcTransportClient(*srv)
-	cli := api.NewApiClient(rpctransp)
+	nsqb := nsqconn.NewNsqBuilder()
+	nsqb.AddNsqdIps(nsqIps...)
+
+	log.Printf("Added IP's: %+v", nsqIps)
+
+	nsqd, err := nsqb.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	var pubsub remote.ReplyablePubSub
+	if *inbox != "" {
+		pubsub, err = remote.NewReplyablePubSubWithInbox(nsqd, *inbox)
+	} else {
+		pubsub, err = remote.NewReplyablePubSub(nsqd)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	rchan := remote.MakeRequestReplyChannel(pubsub, *topic)
+	rtrans := transports.NewRemoteTransportClient(rchan)
+	cli := api.NewApiClient(rtrans)
 
 	cp := gocop.NewCommandParser()
 	world := cp.NewWorld()
 	cp.ResultHandler = printResult
 
-	world.AddSubCommand("+feed").Handler(func(rc gocop.RunContext) (interface{}, error) {
-		return createFeeds(cli)
-	})
+	/*
+		world.AddSubCommand("+feed").Handler(func(rc gocop.RunContext) (interface{}, error) {
+			return createFeeds(cli)
+		})
 
-	world.AddSubCommand("-kill").Handler(func(rc gocop.RunContext) (interface{}, error) {
-		return feedApi.KillSockets()
-	})
+		world.AddSubCommand("-kill").Handler(func(rc gocop.RunContext) (interface{}, error) {
+			return feedApi.KillSockets()
+		})
 
-	world.AddSubCommand("+sub").Handler(func(rc gocop.RunContext) (interface{}, error) {
-		err := feedApi.Subscribe(rc.Get("type"), rc.Get("indicator"), rc.Get("market"))
-		return fmt.Sprintf("%v", err), err
-	}).AddArgument("type").AddArgument("indicator").AddArgument("market")
+		world.AddSubCommand("+sub").Handler(func(rc gocop.RunContext) (interface{}, error) {
+			err := feedApi.Subscribe(rc.Get("type"), rc.Get("indicator"), rc.Get("market"))
+			return fmt.Sprintf("%v", err), err
+		}).AddArgument("type").AddArgument("indicator").AddArgument("market")
+
+	*/
 
 	world.AddSubCommand("/session").Handler(func(rc gocop.RunContext) (interface{}, error) {
 		return cli.Session()
@@ -235,8 +267,7 @@ func main() {
 
 	log.Printf("Starting with PID %d, and parser %+v\n", os.Getpid(), cp)
 
-	err := cp.MainLoop()
+	err = cp.MainLoop()
 
 	log.Print("Exit main loop: ", err)
-
 }

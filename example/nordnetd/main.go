@@ -1,7 +1,8 @@
 package main
 
 import (
-	//	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/feed/nsqfeeder"
 	"github.com/Forau/yanngo/transports"
 	"github.com/Forau/yanngo/transports/gorpc"
 	"io/ioutil"
@@ -38,15 +39,17 @@ func main() {
 		panic(err)
 	}
 
-	// If daemon also should run somce commands, can do it like this
-	/*
-	 cli := api.NewApiClient(ph)
-	 res, err := cli.Accounts()
-	*/
-
 	l, _ := net.Listen("tcp", *bind)
 	srv := gorpc.NewRpcTransportServer(l, ph)
 	defer srv.Close()
+
+	// Start feed.  (badly)
+	cli := api.NewApiClient(ph)
+
+	nsqips := []string{"127.0.0.1:6150"}
+	nsqConfig := map[string]interface{}{}
+	nf, err := nsqfeeder.NewNsqfeeder("nodent.feed", "nordnet.admin", nsqips, nsqConfig, cli)
+	log.Printf("NSQ: %+v, err: %+v", nf, err)
 
 	c := make(chan interface{})
 	log.Print(<-c)

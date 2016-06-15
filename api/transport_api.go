@@ -100,6 +100,10 @@ func NewRequest(command RequestCommand, params map[string]string) (req *Request,
 	return
 }
 
+func (req *Request) Encode() ([]byte, error) {
+	return json.Marshal(req)
+}
+
 // Invoke the request. If there is an error, it should be set in the response struct
 type Transport func(*Request) Response
 

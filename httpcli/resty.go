@@ -1,3 +1,6 @@
+// Copyright (c) 2016 Forau @ github.com. MIT License.
+
+// Package httpcli contains http-based transports
 package httpcli
 
 import (
@@ -61,6 +64,7 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 	rc.restyCli = resty.New().SetLogger(logFile).SetDebug(true).SetHostURL(uri).SetHeaders(map[string]string{
 		"Accept":          "application/json",
 		"Accept-Language": "en",
+		"User-Agent":      "YANNGO v0.0 (Yet Another NordNet GO - API)",
 	})
 
 	rc.restyCli.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
