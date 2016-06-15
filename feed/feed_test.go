@@ -100,7 +100,7 @@ func (ts *testSrv) mainLoop() {
 
 func newTestSrv(t *testing.T, connFn func(net.Conn)) (srv *testSrv) {
 	// &tls.Config{RootCAs: TLS.RootCAs}
-	l, err := tls.Listen("tcp", "127.0.0.1:", TLS)
+	l, err := tls.Listen("tcp", "127.0.0.1:0", TLS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,11 +116,13 @@ func newTestSrv(t *testing.T, connFn func(net.Conn)) (srv *testSrv) {
 }
 
 type simpleCallback struct {
-	t *testing.T
+	t           *testing.T
+	connectChan chan bool
 }
 
 func (c *simpleCallback) OnConnect(w feed.CmdWriter, ft feed.FeedType) {
 	c.t.Logf("Connect[%v]: %+v", ft, w)
+	c.connectChan <- true
 }
 func (c *simpleCallback) OnMessage(msg *feed.FeedMsg, ft feed.FeedType) {
 	c.t.Logf("Msg[%v]: %+v", ft, msg.String())
@@ -164,19 +166,23 @@ func TestConnectToFeed(t *testing.T) {
 		return "PUB", pubts.listen.Addr().String(), nil
 	}
 
-	cb := &simpleCallback{t}
+	cb := &simpleCallback{t, make(chan bool)}
 
 	fd, err := feed.NewFeedDaemon(privSess, pubSess, cb)
 	if err != nil {
 		t.Fatalf("Daemon error: %+v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond) // Ugly yield
+	go func() {
+		<-cb.connectChan
+		<-cb.connectChan
 
-	err = fd.Subscribe("price", "46", "11")
-	if err != nil {
-		t.Fatalf("Subscribe error: %+v", err)
-	}
-	fmt.Println("Closing: ", fd.Close())
-	close(quit)
+		err = fd.Subscribe("price", "46", "11")
+		if err != nil {
+			t.Fatalf("Subscribe error: %+v", err)
+		}
+		fmt.Println("Closing: ", fd.Close())
+		close(quit)
+	}()
+	<-quit
 }
