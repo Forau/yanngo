@@ -6,8 +6,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"fmt"
 	"github.com/Forau/yanngo/feed"
+	"github.com/Forau/yanngo/remote"
 
 	"math/big"
 	"net"
@@ -184,5 +186,57 @@ func TestConnectToFeed(t *testing.T) {
 		fmt.Println("Closing: ", fd.Close())
 		close(quit)
 	}()
-	<-quit
+	select {
+	case <-quit:
+	case <-time.After(2000 * time.Millisecond):
+		t.Error("Timeout after 2000ms")
+	}
+}
+
+func TestFeedTransportState(t *testing.T) {
+	var lastSent []byte
+	pubChan := remote.StreamTopicChannel(func(b []byte) (err error) {
+		t.Logf("Sending '%s'", string(b))
+		lastSent = b
+		return
+	})
+	ft := feed.NewFeedTransport(pubChan)
+
+	testVerMsgs := []struct{ Msg, Ver string }{
+		{`{"type":"depth","data":{"i":"101","m":11,"tick_timestamp":1466185530322,"bid2":72.75,"bid_volume2":1528194,"bid_orders2":3,"ask2":73.10,"ask_volume2":322020,"ask_orders2":1,"bid3":72.70,"bid_volume3":1369705,"bid_orders3":2,"ask3":73.15,"ask_volume3":479736,"ask_orders3":2,"bid4":72.65,"bid_volume4":1909276,"bid_orders4":3,"ask4":73.25,"ask_volume4":646411,"ask_orders4":1,"bid5":72.60,"bid_volume5":30941,"bid_orders5":1,"ask5":73.35,"ask_volume5":636401,"ask_orders5":1}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185530378,"tick_timestamp":1466185530378,"last":73.05,"last_volume":204062,"turnover":284685127906.65,"turnover_volume":3900386024}}`, ""},
+		{`{"type":"depth","data":{"i":"46","m":11,"tick_timestamp":1466185561373,"bid_volume2":18732,"bid_orders2":1}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"last":72.90,"last_volume":96563,"turnover":285924418711.15,"turnover_volume":3917373452}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"last":72.85,"last_volume":260879,"turnover":285943423746.30,"turnover_volume":3917634331}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"last_volume":443968,"turnover":285975766815.10,"turnover_volume":3918078299}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"last":72.90,"turnover":285924418711.15,"turnover_volume":3917373452}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"turnover":285975766815.10,"turnover_volume":3918078299}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561424,"last":72.85,"turnover":285943423746.30,"turnover_volume":3917634331}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561424,"tick_timestamp":1466185561639,"bid":72.85,"bid_volume":410206}}`, ""},
+		{`{"type":"depth","data":{"i":"101","m":11,"tick_timestamp":1466185561639,"bid1":72.85,"bid_volume1":410206,"bid2":72.75,"bid_volume2":911663,"bid_orders2":1,"bid3":72.70,"bid_volume3":1060440,"bid_orders3":3,"bid4":72.65,"bid_volume4":492362,"bid_orders4":1,"bid5":72.60,"bid_volume5":2743477,"bid_orders5":4}}`, ""},
+		{`{"type":"price","data":{"i":"46","m":11,"trade_timestamp":1466185559346,"tick_timestamp":1466185561590,"ask":105.60,"ask_volume":700553}}`, ""},
+		{`{"type":"depth","data":{"i":"46","m":11,"tick_timestamp":1466185561590,"ask1":105.60,"ask_volume1":700553,"ask_orders1":1,"ask2":105.80,"ask_volume2":705762,"ask_orders2":2,"ask3":106.00,"ask_volume3":1388331,"ask_orders3":3,"ask4":106.10,"ask_volume4":219837,"ask5":106.20,"ask_volume5":451261}}`, ""},
+		{`{"type":"depth","data":{"i":"101","m":11,"tick_timestamp":1466185561669}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561935,"tick_timestamp":1466185561935,"last":73.20,"last_volume":2587,"turnover":285975956183.50,"turnover_volume":3918080886}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561935,"tick_timestamp":1466185561935,"bid":72.85,"bid_volume":410206,"ask":73.20,"ask_volume":1569692,"close":60.10,"high":80.00,"last":73.20,"last_volume":2587,"low":62.30,"open":80.00,"vwap":72.98,"turnover":285975956183.50,"turnover_volume":3918080886}}`, ""},
+		{`{"type":"price","data":{"i":"101","m":11,"trade_timestamp":1466185561935,"tick_timestamp":1466185561944,"ask_volume":1567105}}`, `{"type":"price","data":{"ask":73.2,"ask_volume":1.567105e+06,"bid":72.85,"bid_volume":410206,"close":60.1,"high":80,"i":"101","last":73.2,"last_volume":2587,"low":62.3,"m":11,"open":80,"tick_timestamp":1.466185561944e+12,"trade_timestamp":1.466185561935e+12,"turnover":2.859759561835e+11,"turnover_volume":3.918080886e+09,"vwap":72.98}}`},
+		{`{"type":"depth","data":{"i":"101","m":11,"tick_timestamp":1466185561944,"ask_volume1":1567105,"bid_volume3":1026338,"bid_orde,rs3":2,"bid4":72.60,"bid_volume4":2448007,"bid_orders4":3,"bid5":72.50,"bid_volume5":1181703,"bid_orders5":2}}`, `{"type":"depth","data":{"ask2":73.1,"ask3":73.15,"ask4":73.25,"ask5":73.35,"ask_orders2":1,"ask_orders3":2,"ask_orders4":1,"ask_orders5":1,"ask_volume1":1.567105e+06,"ask_volume2":322020,"ask_volume3":479736,"ask_volume4":646411,"ask_volume5":636401,"bid1":72.85,"bid2":72.75,"bid3":72.7,"bid4":72.6,"bid5":72.5,"bid_orde,rs3":2,"bid_orders2":1,"bid_orders3":3,"bid_orders4":3,"bid_orders5":2,"bid_volume1":410206,"bid_volume2":911663,"bid_volume3":1.026338e+06,"bid_volume4":2.448007e+06,"bid_volume5":1.181703e+06,"i":"101","m":11,"tick_timestamp":1.466185561944e+12}}`},
+	}
+
+	for _, msgver := range testVerMsgs {
+		var feedMsg feed.FeedMsg
+		err := json.Unmarshal([]byte(msgver.Msg), &feedMsg)
+		if err != nil {
+			t.Errorf("Unable to unmarshal %s: %+v", msgver.Msg, err)
+		} else {
+			ft.OnMessage(&feedMsg, feed.PublicFeedType)
+			if msgver.Ver != "" {
+				t.Logf("Verifying last with: %s", msgver.Ver)
+				if msgver.Ver != string(lastSent) {
+					t.Errorf("VERIFY error: '%s' != '%s'", msgver.Ver, string(lastSent))
+				}
+			}
+		}
+	}
+
 }

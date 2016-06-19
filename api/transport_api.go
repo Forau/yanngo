@@ -39,10 +39,17 @@ func (ar *Response) IsError() bool {
 	return ar.Error != nil
 }
 
+func (ar *Response) String() string {
+	return fmt.Sprintf("Response{Error: %+v, Payload: %s}", ar.Error, string(ar.Payload))
+}
+
 type RequestCommand string
 
 // The commands that we support.  Will be mapped in the low level TransportHandler
 const (
+	// Internally used.  A well behaving transport should return the commands it can handle
+	TransportRespondsToCmd RequestCommand = "TransportRespondsTo"
+
 	SessionCmd                     RequestCommand = "Session"
 	AccountsCmd                    RequestCommand = "Accounts"
 	AccountCmd                     RequestCommand = "Account"
@@ -79,6 +86,10 @@ const (
 	TradableInfoCmd                RequestCommand = "TradableInfo"
 	TradableIntradayCmd            RequestCommand = "TradableIntraday"
 	TradableTradesCmd              RequestCommand = "TradableTrades"
+
+	FeedSubCmd    RequestCommand = "FeedSubscribe"
+	FeedUnsubCmd  RequestCommand = "FeedUnsubscribe"
+	FeedStatusCmd RequestCommand = "FeedStatus"
 )
 
 type Params map[string]string
@@ -114,4 +125,39 @@ type TransportHandler interface {
 // Let the func implement the handler
 func (p Transport) Preform(req *Request) Response {
 	return p(req)
+}
+
+type TransportRouter struct {
+	defTransport TransportHandler
+	routed       map[RequestCommand]TransportHandler
+}
+
+func NewTransportRouter(defaultTr TransportHandler, others ...TransportHandler) (tr *TransportRouter, err error) {
+	tr = &TransportRouter{defTransport: defaultTr, routed: make(map[RequestCommand]TransportHandler)}
+	for _, th := range others {
+		err = tr.AddTransportHandler(th)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (tr *TransportRouter) AddTransportHandler(th TransportHandler) (err error) {
+	var cmds []RequestCommand
+	res := th.Preform(&Request{Command: TransportRespondsToCmd, Params: Params{}})
+	err = json.Unmarshal(res.Payload, &cmds)
+	if err == nil {
+		for _, cmd := range cmds {
+			tr.routed[cmd] = th
+		}
+	}
+	return
+}
+
+func (tr TransportRouter) Preform(req *Request) Response {
+	if th, ok := tr.routed[req.Command]; ok {
+		return th.Preform(req)
+	}
+	return tr.defTransport.Preform(req)
 }

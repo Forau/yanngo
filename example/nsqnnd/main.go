@@ -1,10 +1,10 @@
 package main
 
 import (
-	//	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/feed"
 	"github.com/Forau/yanngo/remote"
 	"github.com/Forau/yanngo/remote/nsqconn"
-	//	"github.com/Forau/yanngo/feed/nsqfeeder"
 	"github.com/Forau/yanngo/transports"
 
 	"io/ioutil"
@@ -27,11 +27,12 @@ func (a *StringArray) String() string {
 }
 
 var (
-	user     = flag.String("user", "", "User name")
-	pass     = flag.String("pass", "", "Password")
-	endpoint = flag.String("url", "https://api.test.nordnet.se/next/2", "The base URL.")
-	topic    = flag.String("topic", "nordnet.api", "Topic to listen on")
-	pemFile  = flag.String("pem", "../../NEXTAPI_TEST_public.pem", "The PEM file")
+	user      = flag.String("user", "", "User name")
+	pass      = flag.String("pass", "", "Password")
+	endpoint  = flag.String("url", "https://api.test.nordnet.se/next/2", "The base URL.")
+	topic     = flag.String("topic", "nordnet.api", "Topic to listen on")
+	feedTopic = flag.String("feedtop", "nordnet.feed", "Topic to send feed on")
+	pemFile   = flag.String("pem", "../../NEXTAPI_TEST_public.pem", "The PEM file")
 )
 
 func main() {
@@ -49,10 +50,11 @@ func main() {
 		panic(err)
 	}
 
-	nordnetTransport, err := transports.NewDefaultTransport(*endpoint, []byte(*user), []byte(*pass), pem)
+	baseNordnetTransport, err := transports.NewDefaultTransport(*endpoint, []byte(*user), []byte(*pass), pem)
 	if err != nil {
 		panic(err)
 	}
+	nordnetTransport, _ := api.NewTransportRouter(baseNordnetTransport)
 
 	nsqb := nsqconn.NewNsqBuilder()
 	nsqb.AddNsqdIps(nsqIps...)
@@ -79,6 +81,28 @@ func main() {
 		panic(err)
 	}
 
+	apiCli := api.NewApiClient(nordnetTransport)
+	// Feed
+	feedTopicStream := remote.MakeStreamTopicChannel(nsqd, *feedTopic)
+	feedCb := feed.NewFeedTransport(feedTopicStream).SetInfo("topic", *feedTopic)
+	err = nordnetTransport.AddTransportHandler(feedCb)
+	if err != nil {
+		log.Printf("Unable to route %+v: %+v", feedCb, err)
+	}
+
+	feedd, err := feed.NewFeedDaemon(feed.MakePrivateSessionProvider(apiCli),
+		feed.MakePublicSessionProvider(apiCli),
+		feedCb,
+	)
+
+	if err != nil {
+		panic(err)
+	}
+	feedCb.AddSubscription(&feed.FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}})
+	log.Printf("We have feedd: %+v", feedd)
+
+	res, err := apiCli.FeedSub("depth", "46", "11")
+	log.Printf("Res::: %+v -- %+v", res, err)
 	/*
 	     // FOR TEST....
 	     rchan := remote.MakeRequestReplyChannel(pubsub, *topic)

@@ -43,6 +43,30 @@ func convertToStringMap(in map[string]interface{}) map[string]string {
 	return res
 }
 
+// Same as in baseFeed.  TODO: Move to common
+func makeDelayRetry(msg string) func() {
+	resetTimer := time.Now().Add(time.Minute)
+	counter := 0
+	return func() {
+		if time.Now().After(resetTimer) {
+			counter = 0
+		}
+		resetTimer = time.Now().Add(time.Minute) // Reset in one minute, if no other call
+		counter++
+		var delay time.Duration
+		switch counter {
+		case 1:
+			delay = 0
+		case 2:
+			delay = 5000
+		default:
+			delay = 30000
+		}
+		fmt.Printf(msg, delay)
+		time.Sleep(delay * time.Millisecond)
+	}
+}
+
 type RestClient struct {
 	restyCli *resty.Client
 
@@ -50,11 +74,13 @@ type RestClient struct {
 	session  *swagger.Login
 
 	lastSuccess time.Time
+
+	retryDelayLogin func()
 }
 
 func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 	var err error
-	rc := &RestClient{}
+	rc := &RestClient{retryDelayLogin: makeDelayRetry("Waiting %dms before trying to login again\n")}
 	rc.generate, err = crypto.NewCredentialsGenerator(user, pass, pem)
 	if err != nil {
 		panic(err)
@@ -142,6 +168,7 @@ func (rc *RestClient) GetSession() (*swagger.Login, error) {
 	}
 	// TODO: lock
 	// defer UNLOCK
+	rc.retryDelayLogin()
 
 	auth, err := rc.generate()
 	if err == nil {

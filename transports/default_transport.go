@@ -140,7 +140,13 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 			}
 		}()
 
-		if templ := CommandTemplates[req.Command]; templ != nil {
+		if req.Command == api.TransportRespondsToCmd {
+			cmds := []api.RequestCommand{}
+			for cmd, _ := range CommandTemplates {
+				cmds = append(cmds, cmd)
+			}
+			res.Success(cmds)
+		} else if templ := CommandTemplates[req.Command]; templ != nil {
 			qmap := req.Params
 			path := templ.execute(qmap)
 

@@ -29,7 +29,7 @@ func NewRemoteTransportClient(rrchan remote.RequestReplyChannel) (transp api.Tra
 	return
 }
 
-func BindRemoteTransportServer(topic string, pubsub remote.PubSub, transp api.Transport) error {
+func BindRemoteTransportServer(topic string, pubsub remote.PubSub, transp api.TransportHandler) error {
 	srh := remote.MakeSubReplyHandler(pubsub, remote.SubReplyHandlerHelperFn(func(topic string, msg []byte) (rb []byte, err error) {
 		var req api.Request
 		err = json.Unmarshal(msg, &req)

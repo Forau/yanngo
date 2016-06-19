@@ -28,6 +28,11 @@ func (fm *FeedMsg) String() string {
 	return fmt.Sprintf("FeedMsg[%s]: %s", fm.Type, string(fm.Data))
 }
 
+// TODO: See if we want to actually encode, or just fake
+func (fm *FeedMsg) Encode() []byte {
+	return []byte(fmt.Sprintf(`{"type":"%s","data":"%s"}`, fm.Type, string(fm.Data)))
+}
+
 type CmdWriter func(cmd *FeedCmd) error
 type FeedType uint64
 
@@ -158,16 +163,14 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider, callback 
 }
 
 func (f *baseFeed) Write(any *FeedCmd) (err error) {
-	log.Printf("Writing %+v", any)
 	defer func() {
 		if e, ok := recover().(error); ok {
 			err = e
 		}
+		log.Printf("Writing %+v -> %+v", any, err)
 	}()
 
 	err = f.encoder.Encode(any)
-	log.Printf("Writing done: ", err)
-
 	return
 }
 

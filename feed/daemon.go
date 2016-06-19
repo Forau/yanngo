@@ -1,27 +1,32 @@
 package feed
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/Forau/yanngo/api"
-	"log"
+	//	"log"
 )
 
-type callback struct {
-	subs []*FeedCmd
+// A representation of the subscription. Can generate the proper types depending on data
+type FeedSubscriptionKey struct {
+	T, I, M string
+	S       int64
+	Delay   bool
 }
 
-func (c *callback) OnConnect(w CmdWriter, ft FeedType) {
-	log.Printf("Connect[%v]: %+v", ft, w)
-	if ft == PublicFeedType {
-		for _, s := range c.subs {
-			log.Printf("Sending: %+v", s)
-			w(s)
-		}
+func (fsk *FeedSubscriptionKey) ToFeedCmd(cmdType string) (ret *FeedCmd, err error) {
+	ret = &FeedCmd{Cmd: cmdType}
+	switch fsk.T {
+	case "price", "depth", "trade", "trading_status":
+		args := &feedCmdArgs{T: fsk.T, I: fsk.I}
+		_, err = fmt.Sscan(fsk.M, &args.M)
+		ret.Args = args
+	case "indicator":
+		ret.Args = &indicatorArgs{T: fsk.T, I: fsk.I, M: fsk.M}
+	case "news":
+		ret.Args = &newsArgs{T: fsk.T, S: fsk.S, Delay: fsk.Delay}
 	}
+	return
 }
-func (c *callback) OnMessage(msg *FeedMsg, ft FeedType) { log.Printf("Msg[%v]: %+v", ft, msg.String()) }
-func (c *callback) OnError(err error, ft FeedType)      { log.Printf("Err[%v]: %+v", ft, err) }
 
 type feedCmdArgs struct {
 	T string `json:"t"`
@@ -41,16 +46,6 @@ type newsArgs struct {
 	T     string `json:"t"`
 	S     int64  `json:"s"`
 	Delay bool   `json:"delay,omitempty"`
-}
-
-type FeedMessage struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
-}
-
-func (fm *FeedMessage) String() string {
-	b, _ := json.Marshal(fm)
-	return string(b)
 }
 
 func MakePrivateSessionProvider(api *api.ApiClient) SessionProvider {
@@ -81,7 +76,7 @@ type FeedDaemon struct {
 // This is not the preferred constuctor.
 func NewFeedDaemonAPI(api *api.ApiClient) (fd *FeedDaemon, err error) {
 	// Dummy callback, that just subscribes to ERIC price every reconnect.
-	cb := &callback{
+	cb := &FeedState{
 		subs: []*FeedCmd{
 			&FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}},
 		},
@@ -110,29 +105,12 @@ func (fd *FeedDaemon) Close() error {
 	return err2
 }
 
-func makeArgs(typ, ident, market string) (ret interface{}, err error) {
-	switch typ {
-	case "price", "depth", "trade", "trading_status":
-		args := &feedCmdArgs{T: typ, I: ident}
-		_, err = fmt.Sscan(market, &args.M)
-		ret = args
-	case "indicator":
-		ret = &indicatorArgs{T: typ, I: ident, M: market}
-	case "news":
-		ret = &newsArgs{T: typ} // TODO: Separate news?
-	}
-	return
-}
-
 func (fd *FeedDaemon) Subscribe(typ, ident, market string) error {
-	args, e := makeArgs(typ, ident, market)
+	cmd, e := (&FeedSubscriptionKey{T: typ, I: ident, M: market}).ToFeedCmd("subscribe")
 	if e != nil {
 		return e
 	}
-	cmd := &FeedCmd{
-		Cmd:  "subscribe",
-		Args: args,
-	}
+
 	return fd.public.Write(cmd)
 }
 

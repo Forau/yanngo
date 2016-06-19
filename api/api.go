@@ -287,3 +287,19 @@ func (ac *ApiClient) TradableTrades(ids ...string) (res []swagger.PublicTrades, 
 	err = ac.build(TradableTradesCmd).S("ids", strings.Join(ids, ",")).Exec(&res)
 	return
 }
+
+// Feeds
+func (ac *ApiClient) FeedSub(typ, id, mark string) (res map[string]string, err error) {
+	err = ac.build(FeedSubCmd).S("type", typ).S("id", id).S("market", mark).Exec(&res)
+	return
+}
+
+func (ac *ApiClient) FeedUnsub(subId string) (res map[string]string, err error) {
+	err = ac.build(FeedUnsubCmd).S("id", subId).Exec(&res)
+	return
+}
+
+func (ac *ApiClient) FeedStatus() (res map[string]interface{}, err error) {
+	err = ac.build(FeedStatusCmd).Exec(&res)
+	return
+}

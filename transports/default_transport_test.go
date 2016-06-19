@@ -5,6 +5,9 @@ import (
 	"github.com/Forau/yanngo/transports"
 	"testing"
 
+	"net/http"
+	"net/http/httptest"
+
 	"io/ioutil"
 	"os"
 )
@@ -32,7 +35,13 @@ func genCmd(cmd api.RequestCommand, q map[string]string) *api.Request {
 
 // TODO: mocking
 func TestCommands(t *testing.T) {
-	tr, err := transports.NewDefaultTransport("end", []byte("kalle"), []byte("hemlig"), pemData)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Logf("HTTP-SRV: %s -> %s", r.Method, r.URL)
+		w.Write([]byte(r.URL.String()))
+	}))
+	defer ts.Close()
+
+	tr, err := transports.NewDefaultTransport(ts.URL, []byte("kalle"), []byte("hemlig"), pemData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +86,6 @@ func TestCommands(t *testing.T) {
 
 	for _, req := range cmds {
 		res := tr(req)
-		t.Log(res)
+		t.Log(res.String())
 	}
 }

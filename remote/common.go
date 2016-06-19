@@ -27,6 +27,14 @@ type PubSub interface {
 	Close() error
 }
 
+type StreamTopicChannel func(data []byte) error
+
+func MakeStreamTopicChannel(ps PubSub, topic string) StreamTopicChannel {
+	return func(data []byte) error {
+		return ps.Pub(topic, data)
+	}
+}
+
 // Simple message with some metadata for reply
 type ReplyableMessage struct {
 	MsgId   int64
@@ -42,7 +50,7 @@ func (rm *ReplyableMessage) Encode() ([]byte, error) {
 type MessageReply struct {
 	MsgId   int64
 	Payload []byte
-	Error   error
+	Error   string
 }
 
 func (mr *MessageReply) Encode() ([]byte, error) {
@@ -59,7 +67,14 @@ func MakeSubReplyHandler(ps PubSub, fn SubReplyHandlerHelperFn) SubHandler {
 		err = json.Unmarshal(data, &msg)
 		if err == nil {
 			reply := &MessageReply{MsgId: msg.MsgId}
-			reply.Payload, reply.Error = fn(topic, msg.Payload)
+
+			b, err := fn(topic, msg.Payload)
+			if err != nil {
+				reply.Error = err.Error()
+			} else {
+				reply.Payload = b
+			}
+
 			repb, err := reply.Encode()
 			if err != nil {
 				// TODO: Investigate if we get this

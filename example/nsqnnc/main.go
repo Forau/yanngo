@@ -122,6 +122,14 @@ func main() {
 	world := cp.NewWorld()
 	cp.ResultHandler = printResult
 
+	world.AddSubCommand("+sub").Handler(func(rc gocop.RunContext) (interface{}, error) {
+		return cli.FeedSub(rc.Get("type"), rc.Get("instrument"), rc.Get("market"))
+	}).AddArgument("type").AddArgument("instrument").AddArgument("market")
+
+	world.AddSubCommand("?feed").Handler(func(rc gocop.RunContext) (interface{}, error) {
+		return cli.FeedStatus()
+	})
+
 	/*
 		world.AddSubCommand("+feed").Handler(func(rc gocop.RunContext) (interface{}, error) {
 			return createFeeds(cli)
