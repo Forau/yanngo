@@ -30,7 +30,7 @@ func (rb *requestBuilder) Exec(res interface{}) error {
 }
 
 func (rb *requestBuilder) S(key, val string) *requestBuilder {
-	rb.req.Params[key] = val
+	rb.req.Args[key] = val
 	return rb
 }
 func (rb *requestBuilder) I(key string, val uint64) *requestBuilder {
@@ -64,7 +64,7 @@ func NewApiClient(ph TransportHandler) *ApiClient {
 
 func (ac *ApiClient) build(command RequestCommand) *requestBuilder {
 	return &requestBuilder{
-		req: &Request{Command: command, Params: Params{}},
+		req: &Request{Command: command, Args: Params{}},
 		ph:  ac.ph,
 	}
 }
@@ -289,7 +289,7 @@ func (ac *ApiClient) TradableTrades(ids ...string) (res []swagger.PublicTrades, 
 }
 
 // Feeds
-func (ac *ApiClient) FeedSub(typ, id, mark string) (res map[string]string, err error) {
+func (ac *ApiClient) FeedSub(typ, id, mark string) (res map[string]interface{}, err error) {
 	err = ac.build(FeedSubCmd).S("type", typ).S("id", id).S("market", mark).Exec(&res)
 	return
 }

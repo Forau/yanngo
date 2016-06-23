@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="nnApp">
+  <head>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/sockjs-client/0.3.4/sockjs.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/lazy.js/0.4.2/lazy.min.js"></script>
+    <script type="text/javascript" src="app.js"> </script>
+    <meta charset="UTF-8">
+    <title>Simple Nordnet Example</title>
+  </head>
+
+  <body ng-controller="NnCtrl">
+    <h1>Simple NordNet (dont expect much, this is an example)</h1>
+    <accounts></accounts>
+    <hr/>
+    <select-list></select-list>
+    <hr/>
+    Input text: <input id="input" ng-model="inputField" focus="true" />
+    <button ng-click="sendMsg(inputField)">
+      Send
+    </button>
+    <hr>    
+    
+    <div ng-repeat="message in messages">
+      {{message}}
+    </div>
+    
+    status: <span id="status">{{$rootScope.$sockjs_open}}</span><br>
+    lastMsg: <span id="status">{{lastMsg}}</span>
+    <hr/>
+    FEED:<br>
+    <ul><li ng-repeat="msg in feedMsgs">{{msg}}</li></ul>
+  </body>
+</html>
+

@@ -37,6 +37,13 @@ func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
 	return
 }
 
+func (ts *tradeState) get(fsk *FeedSubscriptionKey) (ret map[string]interface{}, ok bool) {
+	ts.RLock()
+	defer ts.RUnlock()
+	ret, ok = ts.state[*fsk]
+	return
+}
+
 type subscriptionHolder struct {
 	sub *FeedCmd
 	ids []string
@@ -138,16 +145,16 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 // Implement api.TransportHandler for our admin functionality
 func (fs *FeedState) Preform(req *api.Request) (res api.Response) {
 	log.Printf(" --> Got admin request: %+v", req)
-	params := req.Params
+	params := req.Args
 
 	switch req.Command {
 	case api.TransportRespondsToCmd:
-		cmds := []api.RequestCommand{api.FeedSubCmd, api.FeedUnsubCmd, api.FeedStatusCmd}
+		cmds := []api.RequestCommand{api.FeedSubCmd, api.FeedUnsubCmd, api.FeedStatusCmd, api.FeedLastCmd}
 		res.Success(cmds)
 	case api.FeedSubCmd:
 		subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
 		cmd, err := subKey.ToFeedCmd("subscribe")
-		resData := make(map[string]string)
+		resData := make(map[string]interface{})
 		if err == nil {
 			resData["subId"] = fs.AddSubscription(cmd)
 			err = fs.sendCommand(cmd)
@@ -155,7 +162,17 @@ func (fs *FeedState) Preform(req *api.Request) (res api.Response) {
 		if err != nil {
 			res.Fail(-57, err.Error())
 		} else {
+			if data, ok := fs.tradeState.get(subKey); ok {
+				resData["last"] = data
+			}
 			res.Success(resData)
+		}
+	case api.FeedLastCmd:
+		subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
+		if data, ok := fs.tradeState.get(subKey); ok {
+			res.Success(data)
+		} else {
+			res.Fail(-59, "Item not found")
 		}
 	case api.FeedUnsubCmd:
 		res.Fail(-58, "Not implemented yet")

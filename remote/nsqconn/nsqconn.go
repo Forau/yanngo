@@ -8,7 +8,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"time"
 )
+
+var rnd *rand.Rand
+
+func init() {
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd = rand.New(src)
+}
 
 type NsqConnBuilder struct {
 	cfg    *nsq.Config
@@ -20,7 +28,7 @@ type NsqConnBuilder struct {
 }
 
 func NewNsqBuilder() *NsqConnBuilder {
-	return &NsqConnBuilder{cfg: nsq.NewConfig(), channel: fmt.Sprintf("chan%d", rand.Int63())}
+	return &NsqConnBuilder{cfg: nsq.NewConfig(), channel: fmt.Sprintf("chan%d", rnd.Int63())}
 }
 
 func (ncb *NsqConnBuilder) Set(key string, val interface{}) *NsqConnBuilder {
@@ -89,7 +97,7 @@ func (nc *NsqConn) Pub(topic string, data []byte) error {
 			}
 		}
 		log.Print("Trying to send data to '%s', but all %d produces failed", topic, len(nc.producers))
-	}(rand.Perm(len(nc.producers)))
+	}(rnd.Perm(len(nc.producers)))
 	return nil // No errors for now....
 }
 

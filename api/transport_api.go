@@ -8,8 +8,8 @@ import (
 type ErrorStatus int64
 
 type ErrorHolder struct {
-	Status  ErrorStatus
-	Message string
+	Status  ErrorStatus `json:"status,omitempty"`
+	Message string      `json:"message,omitempty"`
 }
 
 func (eh *ErrorHolder) Error() string {
@@ -17,8 +17,8 @@ func (eh *ErrorHolder) Error() string {
 }
 
 type Response struct {
-	Error   *ErrorHolder    // Error, if any. nil if not
-	Payload json.RawMessage // Response payload as JSON
+	Error   *ErrorHolder    `json:"error,omitempty"`   // Error, if any. nil if not
+	Payload json.RawMessage `json:"payload,omitempty"` // Response payload as JSON
 }
 
 func (ar *Response) Fail(status ErrorStatus, msg string) {
@@ -40,7 +40,12 @@ func (ar *Response) IsError() bool {
 }
 
 func (ar *Response) String() string {
-	return fmt.Sprintf("Response{Error: %+v, Payload: %s}", ar.Error, string(ar.Payload))
+	//return fmt.Sprintf("Response{error: %+v, payload: %s}", ar.Error, string(ar.Payload))
+	b, err := json.Marshal(ar)
+	if err != nil {
+		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
+	}
+	return string(b)
 }
 
 type RequestCommand string
@@ -90,24 +95,26 @@ const (
 	FeedSubCmd    RequestCommand = "FeedSubscribe"
 	FeedUnsubCmd  RequestCommand = "FeedUnsubscribe"
 	FeedStatusCmd RequestCommand = "FeedStatus"
+
+	FeedLastCmd RequestCommand = "FeedLast"
 )
 
 type Params map[string]string
 
 type Request struct {
-	Command RequestCommand
-	Params  Params
+	Command RequestCommand `json:"cmd"`
+	Args    Params         `json:"args,omitempty"`
 }
 
 func NewRequest(command RequestCommand, params map[string]string) (req *Request, err error) {
-	req = &Request{Command: command, Params: Params{}}
+	req = &Request{Command: command, Args: Params{}}
 	if params != nil {
 		for k, v := range params {
-			req.Params[k] = v
+			req.Args[k] = v
 		}
 	}
 
-	fmt.Printf("Request %s -> %s\n", req.Command, req.Params)
+	fmt.Printf("Request %s -> %s\n", req.Command, req.Args)
 	return
 }
 
@@ -145,7 +152,7 @@ func NewTransportRouter(defaultTr TransportHandler, others ...TransportHandler) 
 
 func (tr *TransportRouter) AddTransportHandler(th TransportHandler) (err error) {
 	var cmds []RequestCommand
-	res := th.Preform(&Request{Command: TransportRespondsToCmd, Params: Params{}})
+	res := th.Preform(&Request{Command: TransportRespondsToCmd, Args: Params{}})
 	err = json.Unmarshal(res.Payload, &cmds)
 	if err == nil {
 		for _, cmd := range cmds {
@@ -155,7 +162,16 @@ func (tr *TransportRouter) AddTransportHandler(th TransportHandler) (err error) 
 	return
 }
 
-func (tr TransportRouter) Preform(req *Request) Response {
+func (tr TransportRouter) Preform(req *Request) (res Response) {
+	if req.Command == TransportRespondsToCmd {
+		resArgs := []RequestCommand{}
+		for rc, _ := range tr.routed {
+			resArgs = append(resArgs, rc)
+		}
+		res.Success(resArgs)
+		return
+	}
+
 	if th, ok := tr.routed[req.Command]; ok {
 		return th.Preform(req)
 	}

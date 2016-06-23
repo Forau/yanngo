@@ -147,7 +147,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 			}
 			res.Success(cmds)
 		} else if templ := CommandTemplates[req.Command]; templ != nil {
-			qmap := req.Params
+			qmap := req.Args
 			path := templ.execute(qmap)
 
 			fmt.Printf("Got my path: %+v, and data %+v\n", path, qmap)

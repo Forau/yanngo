@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+var rnd *rand.Rand
+
+func init() {
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd = rand.New(src)
+}
+
 // Generic handler for subscriptions
 type SubHandler interface {
 	Handle(topic string, data []byte) error
@@ -122,7 +129,7 @@ type replyablePubSub struct {
 }
 
 func NewReplyablePubSub(ps PubSub) (rep ReplyablePubSub, err error) {
-	return NewReplyablePubSubWithInbox(ps, fmt.Sprintf("INBOX.%d", rand.Int63()))
+	return NewReplyablePubSubWithInbox(ps, fmt.Sprintf("INBOX.%d", rnd.Int63()))
 }
 
 func NewReplyablePubSubWithInbox(ps PubSub, inbox string) (rep ReplyablePubSub, err error) {
@@ -177,7 +184,7 @@ func (rps *replyablePubSub) remove(mid int64, msg *MessageReply) {
 }
 
 func (rps *replyablePubSub) sendReplyableMessage(topic string, data []byte) (msgId int64, ch <-chan *MessageReply, err error) {
-	msgId = rand.Int63()
+	msgId = rnd.Int63()
 	ch0 := make(chan *MessageReply, 1)
 	ch = ch0
 	msg := &ReplyableMessage{MsgId: msgId, Payload: data}

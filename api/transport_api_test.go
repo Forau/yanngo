@@ -12,7 +12,7 @@ func TestRequestEncoding(t *testing.T) {
 	}
 	t.Log(req)
 
-	resMap := req.Params
+	resMap := req.Args
 	t.Logf("Res: %+v\n", resMap)
 	if resMap["Name"] != "TestName" {
 		t.Error("Expected 'TestName' as name, but got ", resMap["Name"])

@@ -29,13 +29,17 @@ Currently there is a redesign under way..
 * api - Interfaces for the api and transports
 * crypto - Helper functions for credentials
 * example - Fairly basic examples. 
-. * nsqnnd - New structured deamon, with nsq as eventbus
-. * nsqnnc - New structured client, with nsq as eventbus
+* example/nsqnnd - New structured deamon, with nsq as eventbus
+* example/nsqnnc - New structured client, with nsq as eventbus
+* example/nsqnnwebapp - New structured webserver with a small trading app. NSQ as eventbus, and SockJS for web stuff.
 * feed - Basic feed.  (Will have some redesign)
 * httpcli - Http-client helper.  Current implementation depends on resty, but a pure standard one would be an easy change.
 * remote - Interfaces to unify remote calls, like RPC or eventbus'es. Wrappers to provide functionality for unificatgion.
-. * nsqconn - Providing what is needed for the 'remote' interfaces when using NSQ as channel.
+* remote/nsqconn - Providing what is needed for the 'remote' interfaces when using NSQ as channel.
 * swagger - Generated swagger model. Only scripted changes, so it can be updated if nordnet changes its api.
 * transports - Implementation of api/transports interface.
 
 What should work on any given checkin is the tests, and the examples.
+
+-- Current restructure --
+The focus is to shift from the api (IE the class with all the methods to call), to let transports define their own api in runtime, and thus be able to hook in custom 'helper' commands, or custom caching methods.
