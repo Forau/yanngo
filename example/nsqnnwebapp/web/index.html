@@ -12,20 +12,15 @@
   <body ng-controller="NnCtrl">
     <h1>Simple NordNet (dont expect much, this is an example)</h1>
     <accounts></accounts>
-    <hr/>
-    <select-list></select-list>
-    <hr/>
-    Input text: <input id="input" ng-model="inputField" focus="true" />
-    <button ng-click="sendMsg(inputField)">
-      Send
-    </button>
-    <hr>    
-    
+    <hr/>  
+    <command-form></command-form>
+    <hr/>        
     <div ng-repeat="message in messages">
       {{message}}
-    </div>
-    
+    </div>    
     status: <span id="status">{{$rootScope.$sockjs_open}}</span><br>
+    <select-list></select-list>   
+    <hr/>
     lastMsg: <span id="status">{{lastMsg}}</span>
     <hr/>
     FEED:<br>

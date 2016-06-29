@@ -76,6 +76,8 @@ type RestClient struct {
 	lastSuccess time.Time
 
 	retryDelayLogin func()
+
+	waitLockTime time.Time
 }
 
 func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
@@ -119,6 +121,12 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 }
 
 func (rc *RestClient) Execute(method, path string, payload map[string]string) (json.RawMessage, error) {
+	for time.Now().Before(rc.waitLockTime) {
+		// We could count exact, but lets just loop every second and print in logs.
+		fmt.Printf("Waiting nicely for nordnet. Now: %v, Allowed at: %v\n", time.Now().String(), rc.waitLockTime.String())
+		time.Sleep(time.Second)
+	}
+
 	sess, err := rc.GetSession()
 	if err != nil {
 		fmt.Printf("Login error: %+v\n", err)
@@ -155,9 +163,11 @@ func (rc *RestClient) Execute(method, path string, payload map[string]string) (j
 			if sess == rc.session {
 				rc.session = nil
 			}
-			return rc.Execute(method, path, payload) // TODO: Make sure we cant loop
+			return rc.Execute(method, path, payload)
+		} else if resp.StatusCode() == 429 { // Too Many Requests, please wait for 10 seconds before trying again
+			rc.waitLockTime = time.Now().Add(time.Duration(10) * time.Second)
 		}
-		return nil, restError
+		return nil, fmt.Errorf("%d: %s %s: %v", resp.StatusCode(), method, path, restError)
 	}
 	return resp.Body(), nil
 }

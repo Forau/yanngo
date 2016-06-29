@@ -85,7 +85,7 @@ func TestCommands(t *testing.T) {
 	}
 
 	for _, req := range cmds {
-		res := tr(req)
+		res := tr.Preform(req)
 		t.Log(res.String())
 	}
 }

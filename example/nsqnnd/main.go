@@ -54,7 +54,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	nordnetTransport, _ := api.NewTransportRouter(baseNordnetTransport)
+	cacheHandler := transports.NewSimpleMemoryCacheHandler()
+	nordnetTransport, _ := api.NewCachedTransportRouter(cacheHandler, baseNordnetTransport)
 
 	nsqb := nsqconn.NewNsqBuilder()
 	nsqb.AddNsqdIps(nsqIps...)

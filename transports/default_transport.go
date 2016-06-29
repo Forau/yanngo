@@ -4,164 +4,166 @@ import (
 	"github.com/Forau/yanngo/api"
 	"github.com/Forau/yanngo/httpcli"
 
+	"encoding/json"
+
 	"fmt"
 )
 
-type pathMap struct {
-	key  string
-	conv func(in interface{}) string
-}
-
-var fmtStr = func(in interface{}) string {
-	if str, ok := in.(string); ok {
-		return str
-	}
-	fmt.Printf("Dont know how to convert %T (%+v) to string.\n", in, in)
-	return fmt.Sprintf("%v", in)
-}
-
-var fmtStrArr = func(in interface{}) string {
-	fmt.Printf("Got possible array %+v\n", in)
-	if arr, ok := in.([]interface{}); ok {
-		res := []byte{}
-		for idx, val := range arr {
-			if idx > 0 {
-				res = append(res, ',')
-			}
-			res = append(res, fmtStr(val)...)
-		}
-		return string(res)
-	} else {
-		return fmtStr(in)
-	}
-}
-
-var fmtInt = func(in interface{}) string {
-	switch t := in.(type) {
-	case float64, float32:
-		return fmt.Sprintf("%.0f", t)
-	case int, uint:
-		return fmt.Sprintf("%d", t)
-	default:
-		fmt.Printf("Dont know how to convert %T (%+v) to int.\n", t, t)
-		return fmt.Sprintf("%v", in)
-	}
-}
-
-var fmtIntArr = func(in interface{}) string {
-	if arr, ok := in.([]interface{}); ok {
-		res := []byte{}
-		for idx, val := range arr {
-			if idx > 0 {
-				res = append(res, ',')
-			}
-			res = append(res, fmtInt(val)...)
-		}
-		return string(res)
-	} else {
-		fmt.Printf("Could not convert %+v to interface array.  %T\n", in, in)
-		return fmtInt(in)
-	}
-}
-
-type commandMapper struct {
-	action    string
-	path      string
-	pathParts []pathMap
-}
-
-// For now we use template, but later we might add logic to have a static field to save resources
-func (cm *commandMapper) execute(in map[string]string) string {
-	if len(cm.pathParts) > 0 {
-		vals := []interface{}{}
-		for _, k := range cm.pathParts {
-			vals = append(vals, in[k.key])
-			delete(in, k.key)
-		}
-		return fmt.Sprintf(cm.path, vals...)
-	}
-	return cm.path
-}
-
-func newCommandMapper(action, path string, pathParts []pathMap) *commandMapper {
-	return &commandMapper{
-		action:    action,
-		path:      path,
-		pathParts: pathParts,
-	}
-}
-
-var CommandTemplates = map[api.RequestCommand]*commandMapper{
-	api.SessionCmd:                     newCommandMapper("SPECIAL", "session", []pathMap{}),
-	api.AccountsCmd:                    newCommandMapper("GET", "accounts", []pathMap{}),
-	api.AccountCmd:                     newCommandMapper("GET", "accounts/%s", []pathMap{pathMap{"accno", fmtInt}}),
-	api.AccountLedgersCmd:              newCommandMapper("GET", "accounts/%s/ledgers", []pathMap{pathMap{"accno", fmtInt}}),
-	api.AccountOrdersCmd:               newCommandMapper("GET", "accounts/%s/orders", []pathMap{pathMap{"accno", fmtInt}}),
-	api.CreateOrderCmd:                 newCommandMapper("POST", "accounts/%s/orders", []pathMap{pathMap{"accno", fmtInt}}),
-	api.ActivateOrderCmd:               newCommandMapper("PUT", "accounts/%s/orders/%s/activate", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
-	api.UpdateOrderCmd:                 newCommandMapper("PUT", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
-	api.DeleteOrderCmd:                 newCommandMapper("DELETE", "accounts/%s/orders/%s", []pathMap{pathMap{"accno", fmtInt}, pathMap{"order_id", fmtInt}}),
-	api.AccountPositionsCmd:            newCommandMapper("GET", "accounts/%s/positions", []pathMap{pathMap{"accno", fmtInt}}),
-	api.AccountTradesCmd:               newCommandMapper("GET", "accounts/%s/trades", []pathMap{pathMap{"accno", fmtInt}}),
-	api.CountriesCmd:                   newCommandMapper("GET", "countries/%s", []pathMap{pathMap{"countries", fmtStrArr}}),
-	api.IndicatorsCmd:                  newCommandMapper("GET", "indicators/%s", []pathMap{pathMap{"indicators", fmtStrArr}}),
-	api.InstrumentsCmd:                 newCommandMapper("GET", "instruments/%s", []pathMap{pathMap{"ids", fmtIntArr}}),
-	api.InstrumentSearchCmd:            newCommandMapper("GET", "instruments", []pathMap{}),
-	api.InstrumentLeveragesCmd:         newCommandMapper("GET", "instruments/%s/leverages", []pathMap{pathMap{"id", fmtInt}}),
-	api.InstrumentLeverageFiltersCmd:   newCommandMapper("GET", "instruments/%s/leverages/filters", []pathMap{pathMap{"id", fmtInt}}),
-	api.InstrumentOptionPairsCmd:       newCommandMapper("GET", "instruments/%s/option_pairs", []pathMap{pathMap{"id", fmtInt}}),
-	api.InstrumentOptionPairFiltersCmd: newCommandMapper("GET", "instruments/%s/option_pairs/filters", []pathMap{pathMap{"id", fmtInt}}),
-	api.InstrumentLookupCmd:            newCommandMapper("GET", "instruments/lookup/%s/%s", []pathMap{pathMap{"type", fmtStr}, pathMap{"lookup", fmtStr}}),
-	api.InstrumentSectorsCmd:           newCommandMapper("GET", "instruments/sectors", []pathMap{}),
-	api.InstrumentSectorCmd:            newCommandMapper("GET", "instruments/sectors/%s", []pathMap{pathMap{"sectors", fmtInt}}),
-	api.InstrumentTypesCmd:             newCommandMapper("GET", "instruments/types/%s", []pathMap{pathMap{"type", fmtInt}}),
-	api.InstrumentUnderlyingsCmd:       newCommandMapper("GET", "instruments/underlyings/%s/%s", []pathMap{pathMap{"type", fmtInt}, pathMap{"currency", fmtInt}}),
-	api.ListsCmd:                       newCommandMapper("GET", "lists", []pathMap{}),
-	api.ListCmd:                        newCommandMapper("GET", "lists/%s", []pathMap{pathMap{"id", fmtInt}}),
-	api.MarketCmd:                      newCommandMapper("GET", "markets/%s", []pathMap{pathMap{"ids", fmtIntArr}}),
-	api.SearchNewsCmd:                  newCommandMapper("GET", "news", []pathMap{}),
-	api.NewsCmd:                        newCommandMapper("GET", "news/%s", []pathMap{pathMap{"ids", fmtInt}}),
-	api.NewsSourcesCmd:                 newCommandMapper("GET", "news_sources", []pathMap{}),
-	api.RealtimeAccessCmd:              newCommandMapper("GET", "realtime_access", []pathMap{}),
-	api.TickSizesCmd:                   newCommandMapper("GET", "tick_sizes", []pathMap{}),
-	api.TickSizeCmd:                    newCommandMapper("GET", "tick_sizes/%s", []pathMap{pathMap{"ids", fmtInt}}),
-	api.TradableInfoCmd:                newCommandMapper("GET", "tradables/info/%s", []pathMap{pathMap{"ids", fmtInt}}),
-	api.TradableIntradayCmd:            newCommandMapper("GET", "tradables/intraday/%s", []pathMap{pathMap{"ids", fmtInt}}),
-	api.TradableTradesCmd:              newCommandMapper("GET", "tradables/trades/%s", []pathMap{pathMap{"ids", fmtInt}}),
-}
-
-func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api.Transport, err error) {
+func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api.TransportHandler, err error) {
 	restcli := httpcli.NewRestClient(endpoint, user, pass, rawPem)
 
-	transp = func(req *api.Request) (res api.Response) {
-		defer func() {
-			if err := recover(); err != nil {
-				res.Fail(-1, fmt.Sprintf("%+v", err))
-			}
-		}()
+	defTransp := make(api.RequestCommandTransport)
+	transp = defTransp
 
-		if req.Command == api.TransportRespondsToCmd {
-			cmds := []api.RequestCommand{}
-			for cmd, _ := range CommandTemplates {
-				cmds = append(cmds, cmd)
-			}
-			res.Success(cmds)
-		} else if templ := CommandTemplates[req.Command]; templ != nil {
-			qmap := req.Args
-			path := templ.execute(qmap)
-
-			fmt.Printf("Got my path: %+v, and data %+v\n", path, qmap)
-			resp, err := restcli.Execute(templ.action, path, qmap)
-			fmt.Printf("Res : %+v -> %+v\n", res, err)
-			if err != nil {
-				res.Fail(-2, err.Error())
-			} else {
-				res.Payload = resp
-			}
-		} else {
-			panic(fmt.Errorf("Unable to find template for %s", req.Command))
+	makeHandler := func(method, path string, pathArgs, postArgs []string) func(api.Params) (json.RawMessage, error) {
+		return func(p api.Params) (json.RawMessage, error) {
+			parsedPath := p.Sprintf(path, pathArgs...)
+			res, err := restcli.Execute(method, parsedPath, p.SubParams(postArgs...))
+			fmt.Printf("\nGot response from http: %+v\n\n", string(res))
+			return res, err
 		}
-		return
 	}
+
+	defTransp.AddCommand(string(api.SessionCmd)).Description("Get the current session from last login").
+		Handler(makeHandler("SPECIAL", "session", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountsCmd)).Description("Get list of accounts").TTLHours(12).
+		Handler(makeHandler("GET", "accounts", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountCmd)).Description("Get account info").
+		AddArgument("accno").Handler(makeHandler("GET", "accounts/%v", []string{"accno"}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountLedgersCmd)).Description("AccountLedgersCmd").
+		AddArgument("accno").Handler(makeHandler("GET", "accounts/%v/ledgers", []string{"accno"}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountOrdersCmd)).Description("AccountOrdersCmd").
+		AddArgument("accno").Handler(makeHandler("GET", "accounts/%v/orders", []string{"accno"}, []string{}))
+
+	defTransp.AddCommand(string(api.CreateOrderCmd)).Description("CreateOrderCmd").
+		AddArgument("accno").
+		AddArgument("identifier").
+		AddArgument("market_id").
+		AddArgument("price").
+		AddArgument("currency").
+		AddArgument("volume").
+		AddFullArgument("side", "Buy or Sell", []string{"BUY", "SELL"}, false).
+		AddFullArgument("order_type", "The order type", []string{"FAK", "FOK", "LIMIT", "STOP_LIMIT", "STOP_TRAILING", "OCO"}, true).
+		AddOptArgument("valid_until").
+		AddOptArgument("open_volume").
+		AddOptArgument("reference").
+		AddFullArgument("activation_condition", "Used for stop loss orders", []string{"STOP_ACTPRICE_PERC", "STOP_ACTPRICE", "MANUAL", "OCO_STOP_ACTPRICE"}, true).
+		AddOptArgument("trigger_value").
+		AddFullArgument("trigger_condition", "Condition to trigger", []string{"<=", ">="}, true).
+		AddOptArgument("target_value").
+		Handler(makeHandler("POST", "accounts/%v/orders", []string{"accno"},
+		[]string{"identifier", "market_id", "price", "currency", "volume", "side", "order_type", "valid_until", "open_volume",
+			"reference", "activation_condition", "trigger_value", "trigger_condition", "target_value"}))
+
+	defTransp.AddCommand(string(api.ActivateOrderCmd)).Description("ActivateOrderCmd").
+		AddArgument("accno").AddArgument("order_id").
+		Handler(makeHandler("PUT", "accounts/%v/orders/%v/activate", []string{"accno", "order_id"}, []string{}))
+
+	defTransp.AddCommand(string(api.UpdateOrderCmd)).Description("UpdateOrderCmd").
+		AddArgument("accno").AddArgument("order_id").
+		AddArgument("price").
+		AddArgument("currency").
+		AddArgument("volume").
+		Handler(makeHandler("PUT", "accounts/%v/orders/%v", []string{"accno", "order_id"},
+		[]string{"price", "currency", "volume"}))
+
+	defTransp.AddCommand(string(api.DeleteOrderCmd)).Description("DeleteOrderCmd").
+		AddArgument("accno").AddArgument("order_id").
+		Handler(makeHandler("DELETE", "accounts/%v/orders/%v", []string{"accno", "order_id"}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountPositionsCmd)).Description("AccountPositionsCmd").
+		AddArgument("accno").Handler(makeHandler("GET", "accounts/%v/positions", []string{"accno"}, []string{}))
+
+	defTransp.AddCommand(string(api.AccountTradesCmd)).Description("AccountTradesCmd").
+		AddArgument("accno").Handler(makeHandler("GET", "accounts/%v/trades", []string{"accno"}, []string{}))
+
+	defTransp.AddCommand(string(api.CountriesCmd)).Description("CountriesCmd").TTLHours(12).
+		AddFullArgument("countries", "Countries to query. Coma separated list", []string{}, true).
+		Handler(makeHandler("GET", "countries/%v", []string{"countries"}, []string{}))
+
+	defTransp.AddCommand(string(api.IndicatorsCmd)).Description("IndicatorsCmd").TTLHours(12).
+		AddFullArgument("indicators", "Indicators to query. Format: SRC:ID,...", []string{}, true).
+		Handler(makeHandler("GET", "indicators/%v", []string{"indicators"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentsCmd)).Description("InstrumentsCmd").TTLHours(12).
+		AddArgument("instruments").Handler(makeHandler("GET", "instruments/%v", []string{"instruments"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentSearchCmd)).Description("InstrumentSearchCmd").
+		AddArgument("query").AddOptArgument("instrument_group_type").AddOptArgument("limit").AddOptArgument("offset").
+		AddFullArgument("fuzzy", "", []string{"true", "false"}, true).
+		Handler(makeHandler("GET", "instruments", []string{}, []string{"query", "instrument_group_type", "limit", "offset", "fuzzy"}))
+
+	defTransp.AddCommand(string(api.InstrumentLeveragesCmd)).Description("InstrumentLeveragesCmd").
+		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages", []string{"instrument"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentLeverageFiltersCmd)).Description("InstrumentLeverageFiltersCmd").
+		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages/filters", []string{"instrument"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentOptionPairsCmd)).Description("InstrumentOptionPairsCmd").
+		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/option_pairs", []string{"instrument"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentOptionPairFiltersCmd)).Description("InstrumentOptionPairFiltersCmd").
+		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/option_pairs/filters", []string{"instrument"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentLookupCmd)).Description("InstrumentLookupCmd").
+		AddFullArgument("type", "Lookup type", []string{"market_id_identifier", "isin_code_currency_market_id"}, false).
+		AddFullArgument("lookup", "Format for market_id_identifier: [market_id]:[identifier].\nFormat for isin_code_currency_market_id: [isin]:[currency]:[market_id]", []string{}, false).
+		Handler(makeHandler("GET", "instruments/lookup/%v/%v", []string{"type", "lookup"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentSectorsCmd)).Description("InstrumentSectorCmd").TTLHours(12).
+		AddFullArgument("sectors", "List of sectors to filter. Separated with comma.", []string{}, true).
+		Handler(makeHandler("GET", "instruments/sectors/%v", []string{"sectors"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentTypesCmd)).Description("InstrumentTypesCmd").TTLHours(12).
+		AddFullArgument("types", "List of types to filter. Separated with comma.", []string{}, true).
+		Handler(makeHandler("GET", "instruments/types/%v", []string{"types"}, []string{}))
+
+	defTransp.AddCommand(string(api.InstrumentUnderlyingsCmd)).Description("InstrumentUnderlyingsCmd").
+		AddArgument("type").AddArgument("currency").
+		Handler(makeHandler("GET", "instruments/underlyings/%v/%v", []string{"type", "currency"}, []string{}))
+
+	defTransp.AddCommand(string(api.ListsCmd)).Description("ListsCmd").TTLHours(12).
+		Handler(makeHandler("GET", "lists", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.ListCmd)).Description("ListCmd").TTLHours(12).
+		AddArgument("id").Handler(makeHandler("GET", "lists/%v", []string{"id"}, []string{}))
+
+	defTransp.AddCommand(string(api.MarketCmd)).Description("MarketCmd").TTLHours(12).
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, true).
+		Handler(makeHandler("GET", "markets/%v", []string{"ids"}, []string{}))
+
+	defTransp.AddCommand(string(api.SearchNewsCmd)).Description("SearchNewsCmd").
+		Handler(makeHandler("GET", "news", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.NewsCmd)).Description("NewsCmd").
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
+		Handler(makeHandler("GET", "news/%v", []string{"ids"}, []string{}))
+
+	defTransp.AddCommand(string(api.NewsSourcesCmd)).Description("NewsSourcesCmd").
+		Handler(makeHandler("GET", "news_sources", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.RealtimeAccessCmd)).Description("RealtimeAccessCmd").
+		Handler(makeHandler("GET", "realtime_access", []string{}, []string{}))
+
+	defTransp.AddCommand(string(api.TickSizeCmd)).Description("TickSizeCmd").TTLHours(12).
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, true).
+		Handler(makeHandler("GET", "tick_sizes/%v", []string{"ids"}, []string{}))
+
+	defTransp.AddCommand(string(api.TradableInfoCmd)).Description("TradableInfoCmd").
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
+		Handler(makeHandler("GET", "tradables/info/%s", []string{"ids"}, []string{}))
+
+	defTransp.AddCommand(string(api.TradableIntradayCmd)).Description("TradableIntradayCmd").
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
+		Handler(makeHandler("GET", "tradables/intraday/%s", []string{"ids"}, []string{}))
+
+	defTransp.AddCommand(string(api.TradableTradesCmd)).Description("TradableTradesCmd").
+		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
+		Handler(makeHandler("GET", "tradables/trades/%v", []string{"ids"}, []string{}))
+
 	return
 }

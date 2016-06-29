@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Forau/yanngo/api"
 	"github.com/Forau/yanngo/remote"
+	"github.com/Forau/yanngo/swagger"
 	"log"
 	"math/rand"
 	"sync"
@@ -13,7 +14,8 @@ import (
 
 type tradeState struct {
 	sync.RWMutex
-	state map[FeedSubscriptionKey]map[string]interface{} // Key, and the json as map[string]interface{}
+	state  map[FeedSubscriptionKey]map[string]interface{}
+	orders map[int64]swagger.Order
 }
 
 func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
@@ -37,6 +39,26 @@ func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
 	return
 }
 
+func (ts *tradeState) mergeOrder(msg *FeedMsg) (err error) {
+	var order swagger.Order
+	err = json.Unmarshal(msg.Data, &order)
+	if err == nil {
+		ts.Lock()
+		defer ts.Unlock()
+		ts.orders[order.OrderId] = order
+	}
+	return
+}
+
+func (ts *tradeState) getOrders() (res []swagger.Order) {
+	ts.RLock()
+	defer ts.RUnlock()
+	for _, order := range ts.orders {
+		res = append(res, order)
+	}
+	return
+}
+
 func (ts *tradeState) get(fsk *FeedSubscriptionKey) (ret map[string]interface{}, ok bool) {
 	ts.RLock()
 	defer ts.RUnlock()
@@ -50,6 +72,7 @@ type subscriptionHolder struct {
 }
 
 type FeedState struct {
+	api.RequestCommandTransport
 	infoMap map[string]string // Only for info.
 	dstChan remote.StreamTopicChannel
 	subs    []*FeedCmd
@@ -59,11 +82,17 @@ type FeedState struct {
 }
 
 func NewFeedTransport(dstChan remote.StreamTopicChannel) *FeedState {
-	return &FeedState{
-		dstChan:    dstChan,
-		tradeState: tradeState{state: make(map[FeedSubscriptionKey]map[string]interface{})},
-		infoMap:    make(map[string]string),
+	fs := &FeedState{
+		dstChan: dstChan,
+		tradeState: tradeState{
+			state:  make(map[FeedSubscriptionKey]map[string]interface{}),
+			orders: make(map[int64]swagger.Order),
+		},
+		infoMap:                 make(map[string]string),
+		RequestCommandTransport: make(api.RequestCommandTransport),
 	}
+	fs.init()
+	return fs
 }
 
 func (fs *FeedState) SetInfo(key, val string) *FeedState {
@@ -117,6 +146,9 @@ func (fs *FeedState) sendToTopic(msg interface{}) {
 func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 	switch msg.Type {
 	case "order":
+		if err := fs.tradeState.mergeOrder(msg); err != nil {
+			log.Printf("Error merging orders: %+v: %+v", msg, err)
+		}
 		fs.sendToTopic(msg)
 	case "price", "depth":
 		if msg2, err := fs.tradeState.merge(msg); err != nil {
@@ -128,13 +160,17 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 		if ft == PrivateFeedType {
 			fs.sendToTopic(msg)
 		} else {
+			fs.tradeState.merge(msg) // Just to save
 			fs.sendToTopic(msg)
 		}
 	case "indicator":
+		fs.tradeState.merge(msg) // Just to save
 		fs.sendToTopic(msg)
 	case "news":
+		fs.tradeState.merge(msg) // Just to save
 		fs.sendToTopic(msg)
 	case "trading_status":
+		fs.tradeState.merge(msg) // Just to save
 		fs.sendToTopic(msg)
 	case "heartbeat":
 	default:
@@ -142,48 +178,76 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 	}
 }
 
-// Implement api.TransportHandler for our admin functionality
-func (fs *FeedState) Preform(req *api.Request) (res api.Response) {
-	log.Printf(" --> Got admin request: %+v", req)
-	params := req.Args
-
-	switch req.Command {
-	case api.TransportRespondsToCmd:
-		cmds := []api.RequestCommand{api.FeedSubCmd, api.FeedUnsubCmd, api.FeedStatusCmd, api.FeedLastCmd}
-		res.Success(cmds)
-	case api.FeedSubCmd:
-		subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
-		cmd, err := subKey.ToFeedCmd("subscribe")
-		resData := make(map[string]interface{})
-		if err == nil {
-			resData["subId"] = fs.AddSubscription(cmd)
-			err = fs.sendCommand(cmd)
-		}
-		if err != nil {
-			res.Fail(-57, err.Error())
-		} else {
-			if data, ok := fs.tradeState.get(subKey); ok {
-				resData["last"] = data
-			}
-			res.Success(resData)
-		}
-	case api.FeedLastCmd:
-		subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
+func (fs *FeedState) subscribe(params api.Params) (json.RawMessage, error) {
+	subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
+	cmd, err := subKey.ToFeedCmd("subscribe")
+	resData := make(map[string]interface{})
+	if err == nil {
+		resData["subId"] = fs.AddSubscription(cmd)
+		err = fs.sendCommand(cmd)
+	}
+	if err != nil {
+		return nil, err
+	} else {
 		if data, ok := fs.tradeState.get(subKey); ok {
-			res.Success(data)
-		} else {
-			res.Fail(-59, "Item not found")
+			resData["last"] = data
 		}
-	case api.FeedUnsubCmd:
-		res.Fail(-58, "Not implemented yet")
-	case api.FeedStatusCmd:
+		return json.Marshal(resData)
+	}
+}
+func (fs *FeedState) lastMsg(params api.Params) (json.RawMessage, error) {
+	subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
+	if data, ok := fs.tradeState.get(subKey); ok {
+		return json.Marshal(data)
+	} else {
+		return nil, fmt.Errorf("Item %+v not found", subKey)
+	}
+}
+
+func (fs *FeedState) init() {
+	fs.AddCommand(string(api.FeedSubCmd)).Description("Subscribe to a feed").
+		AddFullArgument("type", "Type to subscribe to",
+		[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
+		AddFullArgument("id", "Instrument id", []string{}, false).
+		AddFullArgument("market", "Market id", []string{}, false).
+		Handler(fs.subscribe)
+
+	fs.AddCommand(string(api.FeedLastCmd)).Description("Last message from feed").
+		AddFullArgument("type", "Type to get message from",
+		[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
+		AddFullArgument("id", "Instrument id", []string{}, false).
+		AddFullArgument("market", "Market id", []string{}, false).
+		Handler(fs.lastMsg)
+
+	fs.AddCommand("FeedGetOrders").Description("Get the cached orders from feed").
+		Handler(func(params api.Params) (json.RawMessage, error) {
+		orders := fs.tradeState.getOrders()
+		return json.Marshal(orders)
+	})
+
+	fs.AddCommand("FeedGetState").Description("Get the cached state from feed subscriptions").
+		AddFullArgument("id", "Instrument id filter", []string{}, true).
+		AddFullArgument("market", "Market id filter", []string{}, true).
+		Handler(func(params api.Params) (json.RawMessage, error) {
+		res := [](map[string]interface{}){}
+		id := params["id"]
+		market := params["market"]
+		for key, state := range fs.tradeState.state {
+			if (id == "" || id == key.I) && (market == "" || market == key.M) {
+				res = append(res, map[string]interface{}{"type": key.T, "data": state})
+			}
+		}
+		return json.Marshal(res)
+	})
+
+	fs.AddCommand(string(api.FeedStatusCmd)).Description("Get some status").
+		Handler(func(params api.Params) (json.RawMessage, error) {
 		resMap := make(map[string]interface{})
 		for k, v := range fs.infoMap {
 			resMap[k] = v
 		}
 		resMap["subsctiptions"] = fs.subs
-		res.Success(resMap)
-	}
+		return json.Marshal(resMap)
+	})
 
-	return
 }

@@ -6,10 +6,8 @@ import (
 	"github.com/Forau/yanngo/api"
 	"github.com/Forau/yanngo/remote"
 	"github.com/Forau/yanngo/remote/nsqconn"
-	//	"github.com/Forau/yanngo/feed/nsqfeeder"
 	"github.com/Forau/yanngo/transports"
 
-	//	"io/ioutil"
 	"bytes"
 	"encoding/json"
 	"github.com/ugorji/go/codec"
@@ -88,6 +86,26 @@ func toStrArr(in string) (res []string) {
 	return strings.Split(in, " ")
 }
 
+func makeHandlerFor(ci api.RequestCommandInfo, th api.TransportHandler) func(gocop.RunContext) (interface{}, error) {
+	return func(rc gocop.RunContext) (interface{}, error) {
+		log.Printf("Invoked handler for: %+v\n", ci)
+		params := make(api.Params)
+		for _, a := range ci.Arguments {
+			val := rc.Get(a.Name)
+			if val != "" {
+				params[a.Name] = val
+			}
+		}
+		req := &api.Request{Command: ci.Command, Args: params}
+		res := th.Preform(req)
+		if res.IsError() {
+			return nil, res.Error
+		} else {
+			return res.Payload, nil
+		}
+	}
+}
+
 func main() {
 	var nsqIps StringArray
 	flag.Var(&nsqIps, "nsqd", "NSQD ip's. (Can be used multiple times for each nsqd)")
@@ -121,6 +139,27 @@ func main() {
 	cp := gocop.NewCommandParser()
 	world := cp.NewWorld()
 	cp.ResultHandler = printResult
+
+	// Auto gen start ---------------------------------
+	cmdInfoRequest := &api.Request{Command: api.TransportRespondsToCmd, Args: api.Params{}}
+	cmdInfo := rtrans.Preform(cmdInfoRequest)
+
+	var cmdInfoArr []api.RequestCommandInfo
+	err = json.Unmarshal(cmdInfo.Payload, &cmdInfoArr)
+	if err != nil {
+		panic(err)
+	}
+	for _, ci := range cmdInfoArr {
+		arg := world.AddSubCommand(string(ci.Command)).Description(ci.Desc).Handler(makeHandlerFor(ci, rtrans))
+		for _, a := range ci.Arguments {
+			arg = arg.AddArgument(a.Name)
+			if a.Optional {
+				arg = arg.Optional()
+			}
+		}
+	}
+
+	// Auto gen end ---------------------------------
 
 	world.AddSubCommand("+sub").Handler(func(rc gocop.RunContext) (interface{}, error) {
 		return cli.FeedSub(rc.Get("type"), rc.Get("instrument"), rc.Get("market"))

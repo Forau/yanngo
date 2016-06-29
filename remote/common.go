@@ -64,6 +64,14 @@ func (mr *MessageReply) Encode() ([]byte, error) {
 	return json.Marshal(mr)
 }
 
+func (mr *MessageReply) String() string {
+	b, err := json.Marshal(mr)
+	if err != nil {
+		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
+	}
+	return string(b)
+}
+
 // If we use this SubHandler function, then we will handle ReplyableMessage's, and can do basic RPC. We assume json encoding...
 type SubReplyHandlerHelperFn func(topic string, msg []byte) ([]byte, error)
 
@@ -105,7 +113,7 @@ func MakeRequestReplyChannel(rps ReplyablePubSub, topic string) RequestReplyChan
 
 	return func(data []byte) ([]byte, error) {
 		res, err := rps.Request(topic, data)
-		log.Printf("MakeRequestReplyChannel:: %+v, %+v", res, err)
+		log.Printf("MakeRequestReplyChannel:: %+v, %+v", res.String(), err)
 		if err != nil {
 			return []byte{}, err
 		} else {

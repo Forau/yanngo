@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 )
@@ -92,7 +93,7 @@ func main() {
 					var res ResponseWithTypeAndId
 					err := json.Unmarshal([]byte(msg), &req)
 					if err != nil {
-						res.Fail(-99, err.Error())
+						res.Fail(-99, fmt.Sprintf("%s: %s", msg, err.Error()))
 					} else {
 						res.Type = string(req.Command)
 						res.Id = req.Id
