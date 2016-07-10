@@ -123,13 +123,6 @@
         console.log('Got message %o',message);
         $scope.lastMsg = message;
       });
-
-      $scope.feedMsgs = {};
-      $scope.$on('$feed.msg', function(event, message) {
-        console.log('Got FEED message %o',msg);
-        $scope.feedMsgs[msg.type+':'+msg.data.i+':'+msg.data.m] = msg;
-      });
-      
     }]);
 
   nnApp.directive('accounts', [ '$rootScope', 'nnApiHelper', function($rootScope, nnApiHelper) {
@@ -187,6 +180,67 @@
         });
       }
     };
+    }]);
+
+  nnApp.directive('publicFeed', [ '$rootScope', 'nnApiHelper', function($rootScope, nnApiHelper) {
+    return {
+      scope: {},
+      template: '<lu><li ng-repeat="(key, val) in pubFeed">'+
+        '<table><tr><td>{{key}}</td><td>{{val.trading_status.tick_timestamp| date:\'dd/MM HH:mm:ss\'}}</td><td>{{val.trading_status.halted?\'halted\':\'active\'}}</td><td>{{val.trading_status.source_status}}</td><td>{{val.trading_status.status}}</td></tr>'+
+        '<tr><td>{{val.price.trade_timestamp|date:\'dd/MM HH:mm:ss\'}}</td><td>Last {{val.price.last}}</td>'+
+        '<td>VOL {{val.price.last_volume}}</td><td>OHL: {{val.price.open}} {{val.price.high}} {{val.price.low}}</tr>'+
+         '<tr><td>Bid volume</td><td>Bid</td><td></td><td>Ask</td><td>Ask volume</td></tr>'+
+        '<tr><td>{{val.depth.bid_volume1}}</td><td>{{val.depth.bid1}}</td><td>-</td><td>{{val.depth.ask1}}</td><td>{{val.depth.ask_volume1}}</td></tr>'+
+        '<tr ng-if="val.depth.bid_volume2 > 0 || val.depth.ask_volume2 > 0"><td>{{val.depth.bid_volume2}}</td><td>{{val.depth.bid2}}</td><td>-</td><td>{{val.depth.ask2}}</td><td>{{val.depth.ask_volume2}}</td></tr>'+
+        '<tr ng-if="val.depth.bid_volume3 > 0 || val.depth.ask_volume3 > 0"><td>{{val.depth.bid_volume3}}</td><td>{{val.depth.bid3}}</td><td>-</td><td>{{val.depth.ask3}}</td><td>{{val.depth.ask_volume3}}</td></tr>'+
+        '<tr ng-if="val.depth.bid_volume4 > 0 || val.depth.ask_volume4 > 0"><td>{{val.depth.bid_volume4}}</td><td>{{val.depth.bid4}}</td><td>-</td><td>{{val.depth.ask4}}</td><td>{{val.depth.ask_volume4}}</td></tr>'+
+        '<tr ng-if="val.depth.bid_volume5 > 0 || val.depth.ask_volume5 > 0"><td>{{val.depth.bid_volume5}}</td><td>{{val.depth.bid5}}</td><td>-</td><td>{{val.depth.ask5}}</td><td>{{val.depth.ask_volume5}}</td></tr>'+
+        '<tr ng-repeat="trade in val.trades">'+
+        '<td>{{trade.trade_timestamp|date:\'dd/MM HH:mm:ss\'}}</td><td></td><td>{{trade.price}}</td>'+
+        '<td>{{trade.volume}}</td><td>{{trade.broker_selling}}</td><td>-&gt;</td><td>{{trade.broker_buying}}</td></tr>'+
+        '</table></li></lu>',
+      replace: true,
+      transclude: true,
+      controller: function($scope) {
+        $scope.pubFeed = {};
+
+        function handleFeedMsg(msg) {
+          switch(msg.type) {
+          case 'price':
+          case 'depth':
+          case 'trade':
+          case 'trading_status':
+            var key = msg.data.m+':'+msg.data.i;
+            if(!key) {
+              break;
+            }            
+            var ob = $scope.pubFeed[key];
+            if(!ob) {
+              ob = {trades:[]};
+              $scope.pubFeed[key] = ob;
+            }
+            if(msg.type === 'trade') {
+              ob.trades.push(msg.data);
+              while(ob.trades.length > 5) { ob.trades.shift(); } // Limit to last 5 trades
+            } else {
+              ob[msg.type] = msg.data;
+            }
+            break;
+          default:
+            console.log('Ignoring msg %o',msg);
+          }
+        }
+        
+        $scope.$on('$feed.msg', function(event, msg) {
+          handleFeedMsg(msg);
+        });
+        
+        nnApiHelper.sendCmd('FeedGetState').then(function(msg) {
+          console.log('Current feed: %o',msg);
+          $rootScope.Lazy(msg.payload).each(handleFeedMsg);
+        });
+      }
+    };
   }]);
 
     nnApp.directive('orders', [ '$rootScope', 'nnApiHelper', function($rootScope, nnApiHelper) {
@@ -222,7 +276,7 @@
         }
         
         loadFeedOrders();
-        $scope.$on('$feed.msg', function(event, message) {
+        $scope.$on('$feed.msg', function(event, msg) {
           if(msg.type === 'order') {
             var newOrders = $rootScope.Lazy($scope.orders).reject({order_id: msg.data.order_id}).concat([msg.data]).toArray();
             $scope.orders = newOrders;

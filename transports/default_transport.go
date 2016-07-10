@@ -98,7 +98,12 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		Handler(makeHandler("GET", "instruments", []string{}, []string{"query", "instrument_group_type", "limit", "offset", "fuzzy"}))
 
 	defTransp.AddCommand(string(api.InstrumentLeveragesCmd)).Description("InstrumentLeveragesCmd").
-		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages", []string{"instrument"}, []string{}))
+		AddArgument("instrument").
+		AddOptArgument("expiration_date").AddOptArgument("issuer_id").
+		AddFullArgument("market_view", "Filter on market view", []string{"U", "D"}, true).
+		AddOptArgument("instrument_type").AddOptArgument("instrument_group_type").AddOptArgument("currency").
+		Handler(makeHandler("GET", "instruments/%v/leverages", []string{"instrument"},
+		[]string{"expiration_date", "issuer_id", "market_view", "instrument_type", "instrument_group_type", "currency"}))
 
 	defTransp.AddCommand(string(api.InstrumentLeverageFiltersCmd)).Description("InstrumentLeverageFiltersCmd").
 		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages/filters", []string{"instrument"}, []string{}))
@@ -123,7 +128,8 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		Handler(makeHandler("GET", "instruments/types/%v", []string{"types"}, []string{}))
 
 	defTransp.AddCommand(string(api.InstrumentUnderlyingsCmd)).Description("InstrumentUnderlyingsCmd").
-		AddArgument("type").AddArgument("currency").
+		AddFullArgument("type", "Derivative type", []string{"leverage", "option_pair"}, false).
+		AddArgument("currency").
 		Handler(makeHandler("GET", "instruments/underlyings/%v/%v", []string{"type", "currency"}, []string{}))
 
 	defTransp.AddCommand(string(api.ListsCmd)).Description("ListsCmd").TTLHours(12).

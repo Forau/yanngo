@@ -5,6 +5,11 @@
     <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.5.7/angular.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/lazy.js/0.4.2/lazy.min.js"></script>
     <script type="text/javascript" src="app.js"> </script>
+    <style>
+      li { background-color: #bbccbb; }
+      li:nth-child(odd) { background-color: #bbddbb; }
+      li:nth-child(even) { background-color: #aaccbb; }
+    </style>
     <meta charset="UTF-8">
     <title>Simple Nordnet Example</title>
   </head>
@@ -23,8 +28,8 @@
     <hr/>
     lastMsg: <span id="status">{{lastMsg}}</span>
     <hr/>
-    FEED:<br>
-    <ul><li ng-repeat="msg in feedMsgs">{{msg}}</li></ul>
+    PUBLIC FEED  (For raw full feed, do: nsq_tail -topic nordnet.feed --nsqd-tcp-address 127.0.0.1:5150)<br>
+    <public-feed></public-feed>
   </body>
 </html>
 
