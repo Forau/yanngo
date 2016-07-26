@@ -97,7 +97,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("fuzzy", "", []string{"true", "false"}, true).
 		Handler(makeHandler("GET", "instruments", []string{}, []string{"query", "instrument_group_type", "limit", "offset", "fuzzy"}))
 
-	defTransp.AddCommand(string(api.InstrumentLeveragesCmd)).Description("InstrumentLeveragesCmd").
+	defTransp.AddCommand(string(api.InstrumentLeveragesCmd)).Description("InstrumentLeveragesCmd").TTLHours(12).
 		AddArgument("instrument").
 		AddOptArgument("expiration_date").AddOptArgument("issuer_id").
 		AddFullArgument("market_view", "Filter on market view", []string{"U", "D"}, true).
@@ -105,16 +105,16 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		Handler(makeHandler("GET", "instruments/%v/leverages", []string{"instrument"},
 		[]string{"expiration_date", "issuer_id", "market_view", "instrument_type", "instrument_group_type", "currency"}))
 
-	defTransp.AddCommand(string(api.InstrumentLeverageFiltersCmd)).Description("InstrumentLeverageFiltersCmd").
+	defTransp.AddCommand(string(api.InstrumentLeverageFiltersCmd)).Description("InstrumentLeverageFiltersCmd").TTLHours(12).
 		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages/filters", []string{"instrument"}, []string{}))
 
-	defTransp.AddCommand(string(api.InstrumentOptionPairsCmd)).Description("InstrumentOptionPairsCmd").
+	defTransp.AddCommand(string(api.InstrumentOptionPairsCmd)).Description("InstrumentOptionPairsCmd").TTLHours(12).
 		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/option_pairs", []string{"instrument"}, []string{}))
 
-	defTransp.AddCommand(string(api.InstrumentOptionPairFiltersCmd)).Description("InstrumentOptionPairFiltersCmd").
+	defTransp.AddCommand(string(api.InstrumentOptionPairFiltersCmd)).Description("InstrumentOptionPairFiltersCmd").TTLHours(12).
 		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/option_pairs/filters", []string{"instrument"}, []string{}))
 
-	defTransp.AddCommand(string(api.InstrumentLookupCmd)).Description("InstrumentLookupCmd").
+	defTransp.AddCommand(string(api.InstrumentLookupCmd)).Description("InstrumentLookupCmd").TTLHours(12).
 		AddFullArgument("type", "Lookup type", []string{"market_id_identifier", "isin_code_currency_market_id"}, false).
 		AddFullArgument("lookup", "Format for market_id_identifier: [market_id]:[identifier].\nFormat for isin_code_currency_market_id: [isin]:[currency]:[market_id]", []string{}, false).
 		Handler(makeHandler("GET", "instruments/lookup/%v/%v", []string{"type", "lookup"}, []string{}))
@@ -127,7 +127,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("types", "List of types to filter. Separated with comma.", []string{}, true).
 		Handler(makeHandler("GET", "instruments/types/%v", []string{"types"}, []string{}))
 
-	defTransp.AddCommand(string(api.InstrumentUnderlyingsCmd)).Description("InstrumentUnderlyingsCmd").
+	defTransp.AddCommand(string(api.InstrumentUnderlyingsCmd)).Description("InstrumentUnderlyingsCmd").TTLHours(12).
 		AddFullArgument("type", "Derivative type", []string{"leverage", "option_pair"}, false).
 		AddArgument("currency").
 		Handler(makeHandler("GET", "instruments/underlyings/%v/%v", []string{"type", "currency"}, []string{}))
@@ -149,7 +149,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
 		Handler(makeHandler("GET", "news/%v", []string{"ids"}, []string{}))
 
-	defTransp.AddCommand(string(api.NewsSourcesCmd)).Description("NewsSourcesCmd").
+	defTransp.AddCommand(string(api.NewsSourcesCmd)).Description("NewsSourcesCmd").TTLHours(12).
 		Handler(makeHandler("GET", "news_sources", []string{}, []string{}))
 
 	defTransp.AddCommand(string(api.RealtimeAccessCmd)).Description("RealtimeAccessCmd").
@@ -159,7 +159,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("ids", "List of id's. Comma separated", []string{}, true).
 		Handler(makeHandler("GET", "tick_sizes/%v", []string{"ids"}, []string{}))
 
-	defTransp.AddCommand(string(api.TradableInfoCmd)).Description("TradableInfoCmd").
+	defTransp.AddCommand(string(api.TradableInfoCmd)).Description("TradableInfoCmd").TTLHours(12).
 		AddFullArgument("ids", "List of id's. Comma separated", []string{}, false).
 		Handler(makeHandler("GET", "tradables/info/%s", []string{"ids"}, []string{}))
 
