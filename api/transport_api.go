@@ -39,6 +39,15 @@ func (ar *Response) IsError() bool {
 	return ar.Error != nil
 }
 
+func (ar *Response) Unmarshal(ob interface{}) error {
+	return json.Unmarshal(ar.Payload, ob)
+}
+
+func (ar *Response) Marshal(ob interface{}) (err error) {
+	ar.Payload, err = json.Marshal(ob)
+	return
+}
+
 func (ar *Response) String() string {
 	//return fmt.Sprintf("Response{error: %+v, payload: %s}", ar.Error, string(ar.Payload))
 	b, err := json.Marshal(ar)
