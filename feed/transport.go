@@ -243,7 +243,7 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 		} else {
 			fs.sendToTopic(msg2)
 		}
-	case "price", "depth":
+	case "price", "depth", "indicator":
 		if msg2, err := fs.tradeState.merge(msg); err != nil {
 			fs.sendToTopic(msg)
 		} else {
@@ -256,9 +256,6 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 			fs.tradeState.merge(msg) // Just to save
 			fs.sendToTopic(msg)
 		}
-	case "indicator":
-		fs.tradeState.merge(msg) // Just to save
-		fs.sendToTopic(msg)
 	case "news":
 		fs.tradeState.merge(msg) // Just to save
 		fs.sendToTopic(msg)
@@ -274,6 +271,11 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 
 func (fs *FeedState) subscribe(params api.Params) (json.RawMessage, error) {
 	subKey := &FeedSubscriptionKey{T: params["type"], I: params["id"], M: params["market"]}
+
+	if subKey.T == "news" {
+		fmt.Sscan(params["source"], &(subKey.S))
+	}
+
 	cmd, err := subKey.ToFeedCmd("subscribe")
 	resData := make(map[string]interface{})
 	if err == nil {
@@ -302,8 +304,9 @@ func (fs *FeedState) init() {
 	fs.AddCommand(string(api.FeedSubCmd)).Description("Subscribe to a feed").
 		AddFullArgument("type", "Type to subscribe to",
 		[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
-		AddFullArgument("id", "Instrument id", []string{}, false).
-		AddFullArgument("market", "Market id", []string{}, false).
+		AddFullArgument("id", "Instrument id", []string{}, true).
+		AddFullArgument("market", "Market id", []string{}, true).
+		AddFullArgument("source", "News source", []string{}, true).
 		Handler(fs.subscribe)
 
 	fs.AddCommand(string(api.FeedLastCmd)).Description("Last message from feed").

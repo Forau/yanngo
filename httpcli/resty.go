@@ -178,6 +178,10 @@ func (rc *RestClient) GetSession() (*swagger.Login, error) {
 	}
 	// TODO: lock
 	// defer UNLOCK
+
+	// Give 3 sec for login
+	rc.waitLockTime = time.Now().Add(time.Duration(3) * time.Second)
+
 	rc.retryDelayLogin()
 
 	auth, err := rc.generate()
@@ -195,5 +199,6 @@ func (rc *RestClient) GetSession() (*swagger.Login, error) {
 		fmt.Printf("LOGIN %+v\n", tmpSess)
 		rc.session = tmpSess
 	}
+	rc.waitLockTime = time.Now() // No need to wait, we already got session....
 	return rc.session, nil
 }

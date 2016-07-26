@@ -49,16 +49,9 @@ type Callback interface {
 
 type SessionProvider func() (key, url string, err error)
 
-// Arguments for getting orders and trades when logging in
-type getState struct {
-	DeletedOrders bool  `json:"deleted_orders"`
-	Days          int64 `json:"days,omitempty"`
-}
-
 // Arguments for sending the login command
 type loginArgs struct {
-	SessionKey string      `json:"session_key"`
-	GetState   interface{} `json:"get_state,omitempty"`
+	SessionKey string `json:"session_key"`
 }
 
 func makeDelayRetry(msg string) func() {
@@ -139,7 +132,7 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider, callback 
 				f.conn = connw
 				enc := json.NewEncoder(connw) // Dont assign befor our login, let other writers fail on old connection
 				// Login
-				enc.Encode(&FeedCmd{Cmd: "login", Args: &loginArgs{SessionKey: key, GetState: &getState{DeletedOrders: true}}})
+				enc.Encode(&FeedCmd{Cmd: "login", Args: &loginArgs{SessionKey: key}})
 				f.encoder = enc
 				f.decoder = json.NewDecoder(connw)
 				callback.OnConnect(f.Write, f.feedType)
