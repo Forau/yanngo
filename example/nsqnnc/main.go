@@ -59,8 +59,8 @@ func printResult(in interface{}, err error) {
 	}
 }
 
-func toInt(str string) uint64 {
-	var res uint64
+func toInt(str string) int64 {
+	var res int64
 	fmt.Sscan(str, &res)
 	return res
 }
@@ -71,13 +71,13 @@ func toFloat(str string) float64 {
 	return res
 }
 
-func toIntArr(in string) (res []uint64) {
+func toIntArr(in string) (res []int64) {
 	if in != "" {
 		for _, v := range strings.Split(in, " ") {
 			res = append(res, toInt(v))
 		}
 	} else {
-		res = []uint64{}
+		res = []int64{}
 	}
 	return
 }

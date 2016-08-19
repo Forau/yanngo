@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"bytes"
 )
 
 var rnd *rand.Rand
@@ -79,7 +81,11 @@ type SubReplyHandlerHelperFn func(topic string, msg []byte) ([]byte, error)
 func MakeSubReplyHandler(ps PubSub, fn SubReplyHandlerHelperFn) SubHandler {
 	return SubHandlerFn(func(topic string, data []byte) (err error) {
 		var msg ReplyableMessage
-		err = json.Unmarshal(data, &msg)
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.UseNumber()
+		err = dec.Decode(&msg)
+		//		err = json.Unmarshal(data, &msg)
+
 		if err == nil {
 			reply := &MessageReply{MsgId: msg.MsgId}
 
@@ -113,7 +119,7 @@ func MakeRequestReplyChannel(rps ReplyablePubSub, topic string) RequestReplyChan
 
 	return func(data []byte) ([]byte, error) {
 		res, err := rps.Request(topic, data)
-		log.Printf("MakeRequestReplyChannel:: %+v, %+v", res.String(), err)
+		//		log.Printf("MakeRequestReplyChannel:: %+v, %+v", res.String(), err)
 		if err != nil {
 			return []byte{}, err
 		} else {
@@ -165,7 +171,10 @@ func (rps *replyablePubSub) Close() error {
 func (rps *replyablePubSub) Handle(topic string, data []byte) (err error) {
 	// Check to see if it is a reply
 	var reply MessageReply
-	err = json.Unmarshal(data, &reply)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	err = dec.Decode(&reply)
+	//	err = json.Unmarshal(data, &reply)
 	if err != nil {
 		log.Printf("[%s] Unable to handle message %+v: %+v", topic, data, err)
 	} else {

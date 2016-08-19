@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	//	"github.com/Forau/yanngo/swagger"
+	"bytes"
 	"io"
 	"log"
 	"time"
@@ -24,8 +25,22 @@ type FeedMsg struct {
 	Data json.RawMessage `json:"data"`
 }
 
+func NewFeedMsg(data []byte) (ret *FeedMsg, err error) {
+	ret = &FeedMsg{}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	err = dec.Decode(ret)
+	return
+}
+
 func (fm *FeedMsg) String() string {
 	return fmt.Sprintf("FeedMsg[%s]: %s", fm.Type, string(fm.Data))
+}
+
+func (fm *FeedMsg) DecodeData(ret interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(fm.Data))
+	dec.UseNumber()
+	return dec.Decode(ret)
 }
 
 // TODO: See if we want to actually encode, or just fake
@@ -135,6 +150,8 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider, callback 
 				enc.Encode(&FeedCmd{Cmd: "login", Args: &loginArgs{SessionKey: key}})
 				f.encoder = enc
 				f.decoder = json.NewDecoder(connw)
+				f.decoder.UseNumber()
+
 				callback.OnConnect(f.Write, f.feedType)
 
 				var readerr error

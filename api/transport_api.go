@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -40,7 +41,10 @@ func (ar *Response) IsError() bool {
 }
 
 func (ar *Response) Unmarshal(ob interface{}) error {
-	return json.Unmarshal(ar.Payload, ob)
+	dec := json.NewDecoder(bytes.NewReader(ar.Payload))
+	dec.UseNumber()
+	return dec.Decode(ob)
+	//	return json.Unmarshal(ar.Payload, ob)
 }
 
 func (ar *Response) Marshal(ob interface{}) (err error) {
@@ -173,6 +177,8 @@ type RequestArgumentInfo struct {
 	Description string   `json:"desc,omitempty"`
 	Options     []string `json:"opts,omitempty"`
 	Optional    bool     `json:"optional,omitempty"`
+
+	Address string `json:"address,omitempty"` // Optional.  Use when the command is located on none standard topic
 }
 
 type RequestCommandTransport map[RequestCommand]*RequestCommandInfo
@@ -311,7 +317,8 @@ func NewCachedTransportRouter(ch TransportCacheHandler, transports ...TransportH
 func (tr *TransportRouter) AddTransportHandler(th TransportHandler) (err error) {
 	var cmds []RequestCommandInfo
 	res := th.Preform(&Request{Command: TransportRespondsToCmd, Args: Params{}})
-	err = json.Unmarshal(res.Payload, &cmds)
+	err = res.Unmarshal(&cmds)
+	//	err = json.Unmarshal(res.Payload, &cmds)
 	if err == nil {
 		for _, cmd := range cmds {
 			tr.routed[cmd.Command] = infoAwareTransportHandler{th, cmd}

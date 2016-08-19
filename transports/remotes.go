@@ -5,7 +5,8 @@ import (
 	"github.com/Forau/yanngo/api"
 	"github.com/Forau/yanngo/remote"
 
-	"log"
+	"bytes"
+	//	"log"
 )
 
 func NewRemoteTransportClient(rrchan remote.RequestReplyChannel) (transp api.Transport) {
@@ -18,11 +19,16 @@ func NewRemoteTransportClient(rrchan remote.RequestReplyChannel) (transp api.Tra
 			if err != nil {
 				res.Fail(-43, err.Error())
 			}
-			err = json.Unmarshal(resData, &res)
+
+			dec := json.NewDecoder(bytes.NewReader(resData))
+			dec.UseNumber()
+			err = dec.Decode(&res)
+
+			//			err = json.Unmarshal(resData, &res)
 			if err != nil {
 				res.Fail(-44, err.Error())
 			}
-			log.Printf("Response :: %+v", string(res.Payload))
+			//			log.Printf("Response :: %+v", string(res.Payload))
 		}
 		return
 	}
@@ -32,7 +38,11 @@ func NewRemoteTransportClient(rrchan remote.RequestReplyChannel) (transp api.Tra
 func BindRemoteTransportServer(topic string, pubsub remote.PubSub, transp api.TransportHandler) error {
 	srh := remote.MakeSubReplyHandler(pubsub, remote.SubReplyHandlerHelperFn(func(topic string, msg []byte) (rb []byte, err error) {
 		var req api.Request
-		err = json.Unmarshal(msg, &req)
+		dec := json.NewDecoder(bytes.NewReader(msg))
+		dec.UseNumber()
+		err = dec.Decode(&req)
+
+		//		err = json.Unmarshal(msg, &req)
 		if err == nil {
 			res := transp.Preform(&req)
 			rb, err = json.Marshal(&res)
