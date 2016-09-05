@@ -15,6 +15,11 @@ func NewTinyPubSub() *TinyPubSub {
 }
 
 func (tps *TinyPubSub) Pub(topic string, data []byte) error {
+	go tps.PubFork(topic, data)
+	return nil
+}
+
+func (tps *TinyPubSub) PubFork(topic string, data []byte) error {
 	tps.RLock()
 	defer tps.RUnlock()
 	if handlers, ok := tps.subscriptions[topic]; ok {

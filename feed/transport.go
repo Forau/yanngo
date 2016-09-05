@@ -11,6 +11,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"bytes"
 )
 
 type tradeState struct {
@@ -19,10 +21,18 @@ type tradeState struct {
 	orders map[int64]map[string]interface{}
 }
 
+func unmarshalToMap(data []byte) (ret map[string]interface{}, err error) {
+	ret = make(map[string]interface{})
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	err = dec.Decode(&ret)
+	return
+}
+
 func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
-	var payload map[string]interface{}
-	err = json.Unmarshal(msg.Data, &payload)
-	if err == nil {
+	if payload, err2 := unmarshalToMap(msg.Data); err2 != nil {
+		err = err2
+	} else {
 		key := FeedSubscriptionKey{T: msg.Type, I: fmt.Sprintf("%v", payload["i"]), M: fmt.Sprintf("%v", payload["m"])}
 		ts.Lock()
 		defer ts.Unlock()
@@ -41,9 +51,9 @@ func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
 }
 
 func (ts *tradeState) mergeOrder(msg *FeedMsg) (ret *FeedMsg, err error) {
-	var order map[string]interface{}
-	err = json.Unmarshal(msg.Data, &order)
-	if err == nil {
+	if order, err2 := unmarshalToMap(msg.Data); err2 != nil {
+		err = err2
+	} else {
 		ts.Lock()
 		defer ts.Unlock()
 		var key int64
@@ -251,6 +261,7 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 		}
 	case "trade":
 		if ft == PrivateFeedType {
+			msg.Type = "privtrade" // Rename, so we can easier se our trades in feed
 			fs.sendToTopic(msg)
 		} else {
 			fs.tradeState.merge(msg) // Just to save

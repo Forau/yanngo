@@ -33,6 +33,12 @@ func NewFeedMsg(data []byte) (ret *FeedMsg, err error) {
 	return
 }
 
+func NewFeedMsgFromObject(typ string, data interface{}) (ret *FeedMsg, err error) {
+	ret = &FeedMsg{Type: typ}
+	ret.Data, err = json.Marshal(data)
+	return
+}
+
 func (fm *FeedMsg) String() string {
 	return fmt.Sprintf("FeedMsg[%s]: %s", fm.Type, string(fm.Data))
 }
@@ -44,8 +50,10 @@ func (fm *FeedMsg) DecodeData(ret interface{}) error {
 }
 
 // TODO: See if we want to actually encode, or just fake
-func (fm *FeedMsg) Encode() []byte {
-	return []byte(fmt.Sprintf(`{"type":"%s","data":"%s"}`, fm.Type, string(fm.Data)))
+func (fm *FeedMsg) Encode() (ret []byte) {
+	//	return []byte(fmt.Sprintf(`{"type":"%s","data":"%s"}`, fm.Type, string(fm.Data)))
+	ret, _ = json.Marshal(fm)
+	return
 }
 
 type CmdWriter func(cmd *FeedCmd) error
@@ -98,6 +106,7 @@ type baseFeed struct {
 	decoder *json.Decoder
 
 	feedType FeedType
+	callback Callback
 	quit     chan interface{}
 }
 
@@ -125,12 +134,12 @@ func (c *ConnWrap) Close() (err error) {
 }
 
 func newBaseFeed(sp SessionProvider, callback Callback, feedType FeedType) (feed *baseFeed, err error) {
-	feed = &baseFeed{quit: make(chan interface{}), feedType: feedType}
-	go feed.mainLoop(feed.quit, sp, callback)
+	feed = &baseFeed{quit: make(chan interface{}), feedType: feedType, callback: callback}
+	go feed.mainLoop(feed.quit, sp)
 	return
 }
 
-func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider, callback Callback) {
+func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider) {
 	defer func() { f.conn.Close() }() // In func, since conn will be changed
 	go func() {
 		connectDelay := makeDelayRetry("Sleeping %dms before next reconnect")
@@ -152,15 +161,15 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider, callback 
 				f.decoder = json.NewDecoder(connw)
 				f.decoder.UseNumber()
 
-				callback.OnConnect(f.Write, f.feedType)
+				f.callback.OnConnect(f.Write, f.feedType)
 
 				var readerr error
 				for readerr == nil && quit != nil {
 					msg := &FeedMsg{}
-					if readerr = f.decoder.Decode(msg); err == nil {
-						callback.OnMessage(msg, f.feedType)
+					if readerr = f.decoder.Decode(msg); readerr == nil {
+						f.callback.OnMessage(msg, f.feedType)
 					} else {
-						callback.OnError(readerr, f.feedType)
+						f.callback.OnError(readerr, f.feedType)
 					}
 				}
 				log.Printf("Got error while reading %+v  (Quit: %+v)", err, quit)
@@ -176,6 +185,7 @@ func (f *baseFeed) Write(any *FeedCmd) (err error) {
 	defer func() {
 		if e, ok := recover().(error); ok {
 			err = e
+			f.callback.OnError(e, f.feedType)
 		}
 		log.Printf("Writing %+v -> %+v", any, err)
 	}()

@@ -38,6 +38,8 @@ func TestCommands(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("HTTP-SRV: %s -> %s", r.Method, r.URL)
 		w.Write([]byte(r.URL.String()))
+
+		// TODO: ......
 	}))
 	defer ts.Close()
 
