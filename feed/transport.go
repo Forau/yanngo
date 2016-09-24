@@ -18,7 +18,7 @@ import (
 type tradeState struct {
 	sync.RWMutex
 	state  map[FeedSubscriptionKey]map[string]interface{}
-	orders map[int64]map[string]interface{}
+	orders map[string]map[string]interface{}
 }
 
 func unmarshalToMap(data []byte) (ret map[string]interface{}, err error) {
@@ -56,19 +56,16 @@ func (ts *tradeState) mergeOrder(msg *FeedMsg) (ret *FeedMsg, err error) {
 	} else {
 		ts.Lock()
 		defer ts.Unlock()
-		var key int64
-		_, err = fmt.Scan(order["order_id"], &key)
-		if err != nil {
-			if current, ok := ts.orders[key]; ok {
-				for k, v := range order {
-					current[k] = v
-				}
-				ret = &FeedMsg{Type: msg.Type}
-				ret.Data, err = json.Marshal(current)
-			} else {
-				ts.orders[key] = order
-				ret = msg
+		key := fmt.Sprintf("%v:%v", order["accno"], order["order_id"])
+		if current, ok := ts.orders[key]; ok {
+			for k, v := range order {
+				current[k] = v
 			}
+			ret = &FeedMsg{Type: msg.Type}
+			ret.Data, err = json.Marshal(current)
+		} else {
+			ts.orders[key] = order
+			ret = msg
 		}
 	}
 	return
@@ -162,7 +159,7 @@ func NewFeedTransport(dstChan remote.StreamTopicChannel) *FeedState {
 		dstChan: dstChan,
 		tradeState: tradeState{
 			state:  make(map[FeedSubscriptionKey]map[string]interface{}),
-			orders: make(map[int64]map[string]interface{}),
+			orders: make(map[string]map[string]interface{}),
 		},
 		infoMap:                 make(map[string]string),
 		RequestCommandTransport: make(api.RequestCommandTransport),
@@ -274,10 +271,10 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 		fs.tradeState.merge(msg) // Just to save
 		fs.sendToTopic(msg)
 	case "heartbeat":
-		fs.hbt.RegisterHeartbeat(ft)
 	default:
 		log.Printf("Unable to handle msg of type %s: %+v", msg.Type, msg.String())
 	}
+	fs.hbt.RegisterHeartbeat(ft) // Always register heartbeet
 }
 
 func (fs *FeedState) subscribe(params api.Params) (json.RawMessage, error) {

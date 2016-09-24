@@ -69,6 +69,10 @@ func (ac *ApiClient) build(command RequestCommand) *RequestBuilder {
 	}
 }
 
+func (ac *ApiClient) GetTransport() TransportHandler {
+	return ac.ph
+}
+
 type accountQuery struct {
 	Accno   int64 `json:"accno,omitempty"`
 	OrderId int64 `json:"orderid,omitempty"`
