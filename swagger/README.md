@@ -16,5 +16,6 @@ And rename attributes ending with _.
 
   $ sed -i 's/Type_/Typ/g' *.go
   $ sed -i 's/Default_/IsDefault/g' *.go
+  $ sed -i 's/int32/int64/g'  *.go                      # Why use 32 bit ints? Its not the year 2000
   $ gofmt -s -w *.go
   

@@ -5,7 +5,7 @@ type NewsItem struct {
 	SourceId    int64   `json:"source_id,omitempty"`
 	Headline    string  `json:"headline,omitempty"`
 	Body        string  `json:"body,omitempty"`
-	Instruments []int32 `json:"instruments,omitempty"`
+	Instruments []int64 `json:"instruments,omitempty"`
 	Lang        string  `json:"lang,omitempty"`
 	Typ         string  `json:"type,omitempty"`
 	Timestamp   int64   `json:"timestamp,omitempty"`

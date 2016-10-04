@@ -56,6 +56,30 @@ func (fm *FeedMsg) Encode() (ret []byte) {
 	return
 }
 
+// Struct to reprecent a price update
+type FeedPriceData struct {
+	Identifier      string  `json:"i,omitempty"`
+	Market          int64   `json:"m,omitempty"`
+	Ask             float64 `json:"ask,omitempty"`
+	Ask_volume      float64 `json:"ask_volume,omitempty"`
+	Bid             float64 `json:"bid,omitempty"`
+	Bid_volume      float64 `json:"bid_volume,omitempty"`
+	Open            float64 `json:"open,omitempty"`
+	High            float64 `json:"high,omitempty"`
+	Low             float64 `json:"low,omitempty"`
+	Last            float64 `json:"last,omitempty"`
+	Last_volume     int64   `json:"last_volume,omitempty"`
+	Close           float64 `json:"close,omitempty"`
+	EP              float64 `json:"ep,omitempty"`
+	Imbalance       int64   `json:"imbalance,omitempty"`
+	Paired          int64   `json:"paired,omitempty"`
+	Turnover        float64 `json:"turnover,omitempty"`
+	Turnover_volume int64   `json:"turnover_volume,omitempty"`
+	Vwap            float64 `json:"vwap,omitempty"`
+	Tick_timestamp  int64   `json:"tick_timestamp,omitempty"`
+	Trade_timestamp int64   `json:"trade_timestamp,omitempty"`
+}
+
 type CmdWriter func(cmd *FeedCmd) error
 type FeedType uint64
 

@@ -1,10 +1,10 @@
 package swagger
 
 type Position struct {
-	Accno          int32      `json:"accno,omitempty"`
+	Accno          int64      `json:"accno,omitempty"`
 	Instrument     Instrument `json:"instrument,omitempty"`
 	Qty            float32    `json:"qty,omitempty"`
-	PawnPercent    int32      `json:"pawn_percent,omitempty"`
+	PawnPercent    int64      `json:"pawn_percent,omitempty"`
 	MarketValueAcc Amount     `json:"market_value_acc,omitempty"`
 	MarketValue    Amount     `json:"market_value,omitempty"`
 	AcqPrice       Amount     `json:"acq_price,omitempty"`
