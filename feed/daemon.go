@@ -3,6 +3,7 @@ package feed
 import (
 	"fmt"
 	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	//	"log"
 )
 
@@ -13,8 +14,8 @@ type FeedSubscriptionKey struct {
 	Delay   bool
 }
 
-func (fsk *FeedSubscriptionKey) ToFeedCmd(cmdType string) (ret *FeedCmd, err error) {
-	ret = &FeedCmd{Cmd: cmdType}
+func (fsk *FeedSubscriptionKey) ToFeedCmd(cmdType string) (ret *feedmodel.FeedCmd, err error) {
+	ret = &feedmodel.FeedCmd{Cmd: cmdType}
 	switch fsk.T {
 	case "price", "depth", "trade", "trading_status":
 		args := &feedCmdArgs{T: fsk.T, I: fsk.I}
@@ -77,8 +78,8 @@ type FeedDaemon struct {
 func NewFeedDaemonAPI(api *api.ApiClient) (fd *FeedDaemon, err error) {
 	// Dummy callback, that just subscribes to ERIC price every reconnect.
 	cb := &FeedState{
-		subs: []*FeedCmd{
-			&FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}},
+		subs: []*feedmodel.FeedCmd{
+			&feedmodel.FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}},
 		},
 	}
 
@@ -88,11 +89,11 @@ func NewFeedDaemonAPI(api *api.ApiClient) (fd *FeedDaemon, err error) {
 func NewFeedDaemon(privSess, pubSess SessionProvider, cb Callback) (fd *FeedDaemon, err error) {
 	fd = &FeedDaemon{}
 
-	fd.private, err = newBaseFeed(privSess, cb, PrivateFeedType)
+	fd.private, err = newBaseFeed(privSess, cb, feedmodel.PrivateFeedType)
 	if err != nil {
 		return
 	}
-	fd.public, err = newBaseFeed(pubSess, cb, PublicFeedType)
+	fd.public, err = newBaseFeed(pubSess, cb, feedmodel.PublicFeedType)
 	return
 }
 

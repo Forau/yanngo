@@ -3,6 +3,7 @@ package feed_test
 import (
 	"fmt"
 	"github.com/Forau/yanngo/feed"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"github.com/Forau/yanngo/remote/tinypubsub"
 	"testing"
 	"time"
@@ -23,9 +24,9 @@ func TestFeedClient(t *testing.T) {
               "lang":"sv","type":"Market commentary","timestamp":1472842201000}`, true},
 	}
 
-	msgChan := make(chan *feed.FeedMsg, 1)
+	msgChan := make(chan *feedmodel.FeedMsg, 1)
 
-	feed.FeedClient(func(msg *feed.FeedMsg) {
+	feed.FeedClient(func(msg *feedmodel.FeedMsg) {
 		t.Log("Msg: ", msg)
 		msgChan <- msg
 	}).Bind(pubsub, "test.feed")

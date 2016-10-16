@@ -3,9 +3,7 @@ package feed
 import (
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	//	"github.com/Forau/yanngo/swagger"
-	"bytes"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"io"
 	"log"
 	"time"
@@ -14,84 +12,12 @@ import (
 // Set this static variable if you need special TLS config.  Used in tests for example.
 var DefaultTLS *tls.Config
 
-// Used when sending feed commands
-type FeedCmd struct {
-	Cmd  string      `json:"cmd"`
-	Args interface{} `json:"args"`
-}
-
-type FeedMsg struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
-}
-
-func NewFeedMsg(data []byte) (ret *FeedMsg, err error) {
-	ret = &FeedMsg{}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	err = dec.Decode(ret)
-	return
-}
-
-func NewFeedMsgFromObject(typ string, data interface{}) (ret *FeedMsg, err error) {
-	ret = &FeedMsg{Type: typ}
-	ret.Data, err = json.Marshal(data)
-	return
-}
-
-func (fm *FeedMsg) String() string {
-	return fmt.Sprintf("FeedMsg[%s]: %s", fm.Type, string(fm.Data))
-}
-
-func (fm *FeedMsg) DecodeData(ret interface{}) error {
-	dec := json.NewDecoder(bytes.NewReader(fm.Data))
-	dec.UseNumber()
-	return dec.Decode(ret)
-}
-
-// TODO: See if we want to actually encode, or just fake
-func (fm *FeedMsg) Encode() (ret []byte) {
-	//	return []byte(fmt.Sprintf(`{"type":"%s","data":"%s"}`, fm.Type, string(fm.Data)))
-	ret, _ = json.Marshal(fm)
-	return
-}
-
-// Struct to reprecent a price update
-type FeedPriceData struct {
-	Identifier      string  `json:"i,omitempty"`
-	Market          int64   `json:"m,omitempty"`
-	Ask             float64 `json:"ask,omitempty"`
-	Ask_volume      float64 `json:"ask_volume,omitempty"`
-	Bid             float64 `json:"bid,omitempty"`
-	Bid_volume      float64 `json:"bid_volume,omitempty"`
-	Open            float64 `json:"open,omitempty"`
-	High            float64 `json:"high,omitempty"`
-	Low             float64 `json:"low,omitempty"`
-	Last            float64 `json:"last,omitempty"`
-	Last_volume     int64   `json:"last_volume,omitempty"`
-	Close           float64 `json:"close,omitempty"`
-	EP              float64 `json:"ep,omitempty"`
-	Imbalance       int64   `json:"imbalance,omitempty"`
-	Paired          int64   `json:"paired,omitempty"`
-	Turnover        float64 `json:"turnover,omitempty"`
-	Turnover_volume int64   `json:"turnover_volume,omitempty"`
-	Vwap            float64 `json:"vwap,omitempty"`
-	Tick_timestamp  int64   `json:"tick_timestamp,omitempty"`
-	Trade_timestamp int64   `json:"trade_timestamp,omitempty"`
-}
-
-type CmdWriter func(cmd *FeedCmd) error
-type FeedType uint64
-
-const (
-	PrivateFeedType FeedType = iota + 1
-	PublicFeedType
-)
+type CmdWriter func(cmd *feedmodel.FeedCmd) error
 
 type Callback interface {
-	OnConnect(w CmdWriter, ft FeedType)
-	OnMessage(msg *FeedMsg, ft FeedType)
-	OnError(err error, ft FeedType)
+	OnConnect(w CmdWriter, ft feedmodel.FeedType)
+	OnMessage(msg *feedmodel.FeedMsg, ft feedmodel.FeedType)
+	OnError(err error, ft feedmodel.FeedType)
 }
 
 type SessionProvider func() (key, url string, err error)
@@ -129,7 +55,7 @@ type baseFeed struct {
 	encoder *json.Encoder
 	decoder *json.Decoder
 
-	feedType FeedType
+	feedType feedmodel.FeedType
 	callback Callback
 	quit     chan interface{}
 }
@@ -157,7 +83,7 @@ func (c *ConnWrap) Close() (err error) {
 	return
 }
 
-func newBaseFeed(sp SessionProvider, callback Callback, feedType FeedType) (feed *baseFeed, err error) {
+func newBaseFeed(sp SessionProvider, callback Callback, feedType feedmodel.FeedType) (feed *baseFeed, err error) {
 	feed = &baseFeed{quit: make(chan interface{}), feedType: feedType, callback: callback}
 	go feed.mainLoop(feed.quit, sp)
 	return
@@ -180,7 +106,7 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider) {
 				f.conn = connw
 				enc := json.NewEncoder(connw) // Dont assign befor our login, let other writers fail on old connection
 				// Login
-				enc.Encode(&FeedCmd{Cmd: "login", Args: &loginArgs{SessionKey: key}})
+				enc.Encode(&feedmodel.FeedCmd{Cmd: "login", Args: &loginArgs{SessionKey: key}})
 				f.encoder = enc
 				f.decoder = json.NewDecoder(connw)
 				f.decoder.UseNumber()
@@ -189,7 +115,7 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider) {
 
 				var readerr error
 				for readerr == nil && quit != nil {
-					msg := &FeedMsg{}
+					msg := &feedmodel.FeedMsg{}
 					if readerr = f.decoder.Decode(msg); readerr == nil {
 						f.callback.OnMessage(msg, f.feedType)
 					} else {
@@ -205,7 +131,7 @@ func (f *baseFeed) mainLoop(quit chan interface{}, sp SessionProvider) {
 	quit = nil
 }
 
-func (f *baseFeed) Write(any *FeedCmd) (err error) {
+func (f *baseFeed) Write(any *feedmodel.FeedCmd) (err error) {
 	defer func() {
 		if e, ok := recover().(error); ok {
 			err = e
@@ -219,7 +145,7 @@ func (f *baseFeed) Write(any *FeedCmd) (err error) {
 }
 
 func (f *baseFeed) SendCmd(cmd string, args interface{}) error {
-	return f.Write(&FeedCmd{Cmd: cmd, Args: args})
+	return f.Write(&feedmodel.FeedCmd{Cmd: cmd, Args: args})
 }
 
 // baseFeed implements the Closer interface

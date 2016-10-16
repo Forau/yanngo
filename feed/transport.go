@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Forau/yanngo/api"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"github.com/Forau/yanngo/remote"
-	//	"github.com/Forau/yanngo/swagger"  // Not using swagger.Order, to save a few lines of code
 	"log"
 	"math/rand"
 	"sync"
@@ -29,7 +29,7 @@ func unmarshalToMap(data []byte) (ret map[string]interface{}, err error) {
 	return
 }
 
-func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
+func (ts *tradeState) merge(msg *feedmodel.FeedMsg) (ret *feedmodel.FeedMsg, err error) {
 	if payload, err2 := unmarshalToMap(msg.Data); err2 != nil {
 		err = err2
 	} else {
@@ -40,7 +40,7 @@ func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
 			for k, v := range payload {
 				current[k] = v
 			}
-			ret = &FeedMsg{Type: msg.Type}
+			ret = &feedmodel.FeedMsg{Type: msg.Type}
 			ret.Data, err = json.Marshal(current)
 		} else {
 			ts.state[key] = payload
@@ -50,7 +50,7 @@ func (ts *tradeState) merge(msg *FeedMsg) (ret *FeedMsg, err error) {
 	return
 }
 
-func (ts *tradeState) mergeOrder(msg *FeedMsg) (ret *FeedMsg, err error) {
+func (ts *tradeState) mergeOrder(msg *feedmodel.FeedMsg) (ret *feedmodel.FeedMsg, err error) {
 	if order, err2 := unmarshalToMap(msg.Data); err2 != nil {
 		err = err2
 	} else {
@@ -61,7 +61,7 @@ func (ts *tradeState) mergeOrder(msg *FeedMsg) (ret *FeedMsg, err error) {
 			for k, v := range order {
 				current[k] = v
 			}
-			ret = &FeedMsg{Type: msg.Type}
+			ret = &feedmodel.FeedMsg{Type: msg.Type}
 			ret.Data, err = json.Marshal(current)
 		} else {
 			ts.orders[key] = order
@@ -113,8 +113,8 @@ type heartbeatTracker struct {
 	LastPublicHbms  time.Duration
 }
 
-func (hbt *heartbeatTracker) RegisterHeartbeat(ft FeedType) {
-	if ft == PrivateFeedType {
+func (hbt *heartbeatTracker) RegisterHeartbeat(ft feedmodel.FeedType) {
+	if ft == feedmodel.PrivateFeedType {
 		hbt.NumPrivateHbs++
 		last := hbt.LastPrivateHb
 		hbt.LastPrivateHb = time.Now()
@@ -139,7 +139,7 @@ func (hbt *heartbeatTracker) Info() map[string]interface{} {
 }
 
 type subscriptionHolder struct {
-	sub *FeedCmd
+	sub *feedmodel.FeedCmd
 	ids []string
 }
 
@@ -148,7 +148,7 @@ type FeedState struct {
 	infoMap               map[string]string // Only for info.
 	hbt                   heartbeatTracker
 	dstChan               remote.StreamTopicChannel
-	subs                  []*FeedCmd
+	subs                  []*feedmodel.FeedCmd
 	pubWriter, privWriter CmdWriter
 
 	tradeState tradeState
@@ -175,12 +175,12 @@ func (fs *FeedState) monitor() {
 		time.Sleep(time.Second * 10)
 		if fs.privWriter != nil && fs.hbt.LastPrivateHb.Add(time.Second*10).Before(time.Now()) {
 			log.Printf("Missed a private ping. Pinging our self...: %+v", fs.hbt.Info())
-			fs.privWriter(&FeedCmd{Cmd: "heartbeat"})
+			fs.privWriter(&feedmodel.FeedCmd{Cmd: "heartbeat"})
 		}
 
 		if fs.pubWriter != nil && fs.hbt.LastPublicHb.Add(time.Second*10).Before(time.Now()) {
 			log.Printf("Missed a public ping. Pinging our self...: %+v", fs.hbt.Info())
-			fs.pubWriter(&FeedCmd{Cmd: "heartbeat"})
+			fs.pubWriter(&feedmodel.FeedCmd{Cmd: "heartbeat"})
 		}
 
 	}
@@ -192,11 +192,11 @@ func (fs *FeedState) SetInfo(key, val string) *FeedState {
 }
 
 // Implement feed.Callback
-func (fs *FeedState) OnConnect(w CmdWriter, ft FeedType) {
+func (fs *FeedState) OnConnect(w CmdWriter, ft feedmodel.FeedType) {
 	log.Printf("Connect[%v]: %+v", ft, w)
 	fs.infoMap[fmt.Sprintf("%d:connect_%d", ft, time.Now().Unix())] = time.Now().String()
 	fs.hbt.RegisterHeartbeat(ft)
-	if ft == PublicFeedType {
+	if ft == feedmodel.PublicFeedType {
 		fs.pubWriter = w
 		for _, s := range fs.subs {
 			fs.sendCommand(s)
@@ -205,23 +205,23 @@ func (fs *FeedState) OnConnect(w CmdWriter, ft FeedType) {
 		fs.privWriter = w
 	}
 }
-func (fs *FeedState) OnMessage(msg *FeedMsg, ft FeedType) {
+func (fs *FeedState) OnMessage(msg *feedmodel.FeedMsg, ft feedmodel.FeedType) {
 	//	log.Printf("Msg[%v]: %+v", ft, msg.String())
 	fs.handleAndSend(msg, ft)
 }
 
-func (fs *FeedState) OnError(err error, ft FeedType) {
+func (fs *FeedState) OnError(err error, ft feedmodel.FeedType) {
 	log.Printf("Err[%v]: %+v", ft, err)
 	fs.infoMap[fmt.Sprintf("%d:error_%d", ft, time.Now().Unix())] = err.Error()
 }
 
-func (fs *FeedState) AddSubscription(cmd *FeedCmd) (res string) {
+func (fs *FeedState) AddSubscription(cmd *feedmodel.FeedCmd) (res string) {
 	res = fmt.Sprintf("%d", rand.Uint32())
 	fs.subs = append(fs.subs, cmd)
 	return
 }
 
-func (fs *FeedState) sendCommand(cmd *FeedCmd) error {
+func (fs *FeedState) sendCommand(cmd *feedmodel.FeedCmd) error {
 	if fs.pubWriter != nil {
 		log.Printf("Sending: %+v", cmd)
 		return fs.pubWriter(cmd)
@@ -241,7 +241,7 @@ func (fs *FeedState) sendToTopic(msg interface{}) {
 	}
 }
 
-func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
+func (fs *FeedState) handleAndSend(msg *feedmodel.FeedMsg, ft feedmodel.FeedType) {
 	switch msg.Type {
 	case "order":
 		if msg2, err := fs.tradeState.mergeOrder(msg); err != nil {
@@ -257,7 +257,7 @@ func (fs *FeedState) handleAndSend(msg *FeedMsg, ft FeedType) {
 			fs.sendToTopic(msg2)
 		}
 	case "trade":
-		if ft == PrivateFeedType {
+		if ft == feedmodel.PrivateFeedType {
 			msg.Type = "privtrade" // Rename, so we can easier se our trades in feed
 			fs.sendToTopic(msg)
 		} else {

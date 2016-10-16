@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Forau/yanngo/feed"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"github.com/Forau/yanngo/remote"
 
 	"math/big"
@@ -122,14 +123,14 @@ type simpleCallback struct {
 	connectChan chan bool
 }
 
-func (c *simpleCallback) OnConnect(w feed.CmdWriter, ft feed.FeedType) {
+func (c *simpleCallback) OnConnect(w feed.CmdWriter, ft feedmodel.FeedType) {
 	c.t.Logf("Connect[%v]: %+v", ft, w)
 	c.connectChan <- true
 }
-func (c *simpleCallback) OnMessage(msg *feed.FeedMsg, ft feed.FeedType) {
+func (c *simpleCallback) OnMessage(msg *feedmodel.FeedMsg, ft feedmodel.FeedType) {
 	c.t.Logf("Msg[%v]: %+v", ft, msg.String())
 }
-func (c *simpleCallback) OnError(err error, ft feed.FeedType) { c.t.Logf("Err[%v]: %+v", ft, err) }
+func (c *simpleCallback) OnError(err error, ft feedmodel.FeedType) { c.t.Logf("Err[%v]: %+v", ft, err) }
 
 func TestConnectToFeed(t *testing.T) {
 	quit := make(chan interface{})
@@ -224,12 +225,12 @@ func TestFeedTransportState(t *testing.T) {
 	}
 
 	for _, msgver := range testVerMsgs {
-		var feedMsg feed.FeedMsg
+		var feedMsg feedmodel.FeedMsg
 		err := json.Unmarshal([]byte(msgver.Msg), &feedMsg)
 		if err != nil {
 			t.Errorf("Unable to unmarshal %s: %+v", msgver.Msg, err)
 		} else {
-			ft.OnMessage(&feedMsg, feed.PublicFeedType)
+			ft.OnMessage(&feedMsg, feedmodel.PublicFeedType)
 			if msgver.Ver != "" {
 				t.Logf("Verifying last with: %s", msgver.Ver)
 				if msgver.Ver != string(lastSent) {

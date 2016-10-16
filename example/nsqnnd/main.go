@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/Forau/yanngo/api"
 	"github.com/Forau/yanngo/feed"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"github.com/Forau/yanngo/remote"
 	"github.com/Forau/yanngo/remote/nsqconn"
 	"github.com/Forau/yanngo/transports"
@@ -99,7 +100,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	feedCb.AddSubscription(&feed.FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}})
+	feedCb.AddSubscription(&feedmodel.FeedCmd{Cmd: "subscribe", Args: map[string]interface{}{"t": "price", "i": "101", "m": 11}})
 	log.Printf("We have feedd: %+v", feedd)
 
 	res, err := apiCli.FeedSub("depth", "46", "11")

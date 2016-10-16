@@ -3,18 +3,19 @@ package feed
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/Forau/yanngo/feed/feedmodel"
 	"github.com/Forau/yanngo/remote"
 	"log"
 )
 
 // Convenience function to recive feed messages
-type FeedClient func(msg *FeedMsg)
+type FeedClient func(msg *feedmodel.FeedMsg)
 
 // Implement SubHandler
 func (fc FeedClient) Handle(topic string, data []byte) (err error) {
 	der := json.NewDecoder(bytes.NewReader(data))
 	der.UseNumber()
-	var msg FeedMsg
+	var msg feedmodel.FeedMsg
 	if err = der.Decode(&msg); err == nil {
 		fc(&msg)
 	} else {
