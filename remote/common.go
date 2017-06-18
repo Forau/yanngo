@@ -58,8 +58,31 @@ func (rm *ReplyableMessage) Encode() ([]byte, error) {
 // The reply message to recieve
 type MessageReply struct {
 	MsgId   int64
+	Seq     int64
+	NumSeq  int64
 	Payload []byte
 	Error   string
+}
+
+func MakeReplies(msgId int64, payload []byte) (ret []MessageReply) {
+	fmt.Printf("Make reply for %d: %d\n", msgId, len(payload))
+	maxSize := int64(500000)
+	payloads := [][]byte{}
+	l := int64(len(payload))
+	for i := int64(0); i < l; i += maxSize {
+		end := i + maxSize
+		if end > l {
+			end = l
+		}
+		payloads = append(payloads, payload[i:end])
+	}
+	fmt.Printf("Split to %d messages\n", len(payloads))
+
+	l = int64(len(payloads))
+	for idx, pl := range payloads {
+		ret = append(ret, MessageReply{MsgId: msgId, Payload: pl, Seq: int64(idx + 1), NumSeq: l})
+	}
+	return
 }
 
 func (mr *MessageReply) Encode() ([]byte, error) {
@@ -72,6 +95,13 @@ func (mr *MessageReply) String() string {
 		return fmt.Sprintf(`{"error": "%s"}`, err.Error())
 	}
 	return string(b)
+}
+
+func (mr *MessageReply) Info() string {
+	if mr == nil {
+		return "MessageReply{NIL}"
+	}
+	return fmt.Sprintf("MessageReply{%d, Seq: %d/%d. Len %d: %s}\n", mr.MsgId, mr.Seq, mr.NumSeq, len(mr.Payload), mr.Error)
 }
 
 // If we use this SubHandler function, then we will handle ReplyableMessage's, and can do basic RPC. We assume json encoding...
@@ -87,23 +117,25 @@ func MakeSubReplyHandler(ps PubSub, fn SubReplyHandlerHelperFn) SubHandler {
 		//		err = json.Unmarshal(data, &msg)
 
 		if err == nil {
-			reply := &MessageReply{MsgId: msg.MsgId}
-
+			var replies []MessageReply
 			b, err := fn(topic, msg.Payload)
 			if err != nil {
-				reply.Error = err.Error()
+				replies = append(replies, MessageReply{MsgId: msg.MsgId, Error: err.Error()})
 			} else {
-				reply.Payload = b
+				replies = MakeReplies(msg.MsgId, b)
 			}
 
-			repb, err := reply.Encode()
-			if err != nil {
-				// TODO: Investigate if we get this
-				log.Printf("Unable to encode reply: %+v", reply)
-			} else {
-				err := ps.Pub(msg.ReplyTo, repb)
+			for _, reply := range replies {
+				fmt.Printf("Sending %v\n", reply.Info())
+				repb, err := reply.Encode()
 				if err != nil {
-					log.Printf("Unable to reply on message %+v with %+v", msg, reply)
+					// TODO: Investigate if we get this
+					log.Printf("Unable to encode reply: %+v", reply)
+				} else {
+					err := ps.Pub(msg.ReplyTo, repb)
+					if err != nil {
+						log.Printf("Unable to reply on message %+v with %+v", msg, reply)
+					}
 				}
 			}
 		}
@@ -128,6 +160,57 @@ func MakeRequestReplyChannel(rps ReplyablePubSub, topic string) RequestReplyChan
 	}
 }
 
+type ReplySegmentChannel struct {
+	Parts   []MessageReply
+	Channel chan<- *MessageReply
+}
+
+func (rsc *ReplySegmentChannel) SendIfComplete(msg *MessageReply) (ok bool) {
+	if msg == nil || msg.NumSeq == 1 {
+		ok = true
+		fmt.Printf("Sending 'complete' for msg %+v\n", msg.Info())
+	} else {
+		rsc.Parts = append(rsc.Parts, *msg)
+		if newMsg := rsc.assembleParts(); newMsg != nil {
+			msg = newMsg
+			ok = true
+			fmt.Printf("All %d parts assembled. Sending complete on %+v\n", len(rsc.Parts), msg.Info())
+		} else {
+			fmt.Printf("All parts not yet assembled... Current cache size: %d\n", len(rsc.Parts))
+		}
+	}
+	if ok {
+		go func() {
+			rsc.Channel <- msg
+			close(rsc.Channel)
+		}()
+	}
+	return
+}
+
+func (rsc *ReplySegmentChannel) assembleParts() (msg *MessageReply) {
+	if l := int64(len(rsc.Parts)); l == 0 || rsc.Parts[0].NumSeq > l {
+		return nil // Early break for empty, or too few.
+	} else {
+		parts := rsc.Parts[0].NumSeq
+		data := []byte{}
+		segCount := int64(0)
+		for seg := int64(1); seg <= parts; seg++ {
+			for _, p := range rsc.Parts {
+				if p.Seq == seg {
+					data = append(data, p.Payload...)
+					fmt.Printf("Appending data %d for seq %d. Total size %d\n", len(p.Payload), seg, len(data))
+					segCount++
+				}
+			}
+		}
+		if segCount == parts {
+			msg = &MessageReply{MsgId: rsc.Parts[0].MsgId, Seq: 1, NumSeq: 1, Payload: data}
+		}
+	}
+	return
+}
+
 type ReplyablePubSub interface {
 	PubSub
 	Request(string, []byte) (*MessageReply, error)
@@ -138,7 +221,7 @@ type replyablePubSub struct {
 	ps PubSub
 
 	sync.RWMutex // For the reply map
-	replies      map[int64]chan<- *MessageReply
+	replies      map[int64]*ReplySegmentChannel
 	replyTopic   string
 }
 
@@ -147,7 +230,7 @@ func NewReplyablePubSub(ps PubSub) (rep ReplyablePubSub, err error) {
 }
 
 func NewReplyablePubSubWithInbox(ps PubSub, inbox string) (rep ReplyablePubSub, err error) {
-	repOb := &replyablePubSub{ps: ps, replies: make(map[int64]chan<- *MessageReply), replyTopic: inbox}
+	repOb := &replyablePubSub{ps: ps, replies: make(map[int64]*ReplySegmentChannel), replyTopic: inbox}
 	err = repOb.Sub(repOb.replyTopic, repOb)
 	rep = repOb
 	return
@@ -192,23 +275,24 @@ func (rps *replyablePubSub) remove(mid int64, msg *MessageReply) {
 		}
 	}()
 
-	ch, ok := rps.replies[mid]
-	delete(rps.replies, mid)
-	if ok {
-		ch <- msg
-		close(ch)
+	if rsc, ok := rps.replies[mid]; ok {
+		if sent := rsc.SendIfComplete(msg); sent {
+			delete(rps.replies, mid)
+		}
+	} else {
+		log.Printf("Not found any listeners for message %+v\n", mid)
 	}
 }
 
 func (rps *replyablePubSub) sendReplyableMessage(topic string, data []byte) (msgId int64, ch <-chan *MessageReply, err error) {
 	msgId = rnd.Int63()
-	ch0 := make(chan *MessageReply, 1)
+	ch0 := make(chan *MessageReply, 5)
 	ch = ch0
 	msg := &ReplyableMessage{MsgId: msgId, Payload: data}
 	rps.RWMutex.Lock()         // Expencive, but for now, lets lock
 	defer rps.RWMutex.Unlock() // We could unlock sooner, but better safe then sorry
 
-	rps.replies[msg.MsgId] = ch0
+	rps.replies[msg.MsgId] = &ReplySegmentChannel{Channel: ch0}
 	msg.ReplyTo = rps.replyTopic
 	b, err2 := msg.Encode()
 	if err2 != nil {

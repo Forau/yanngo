@@ -11,3 +11,9 @@ Currently NSQD is needed to run the examples, since that is the only pubsub impl
 
 nn_feed_prices have no dependency to yanngo, it is a mere example of benefits of having the data available in different manners. To run it, you can eighter first stream everything to a file, and then tail that one, or just: nsq_tail -topic nordnet.feed --nsqd-tcp-address 127.0.0.1:5150 | go run main.go
 
+* omxtime - A small tool to convert or check time. Locale is hardcoded to Stockholm, regardless of system locale
+
+To install omxtime for example, for easier use, then just:
+go get -u github.com/Forau/yanngo/example/omxtime
+
+

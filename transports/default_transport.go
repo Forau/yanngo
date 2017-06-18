@@ -56,8 +56,8 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("trigger_condition", "Condition to trigger", []string{"<=", ">="}, true).
 		AddOptArgument("target_value").
 		Handler(makeHandler("POST", "accounts/%v/orders", []string{"accno"},
-		[]string{"identifier", "market_id", "price", "currency", "volume", "side", "order_type", "valid_until", "open_volume",
-			"reference", "activation_condition", "trigger_value", "trigger_condition", "target_value"}))
+			[]string{"identifier", "market_id", "price", "currency", "volume", "side", "order_type", "valid_until", "open_volume",
+				"reference", "activation_condition", "trigger_value", "trigger_condition", "target_value"}))
 
 	defTransp.AddCommand(string(api.ActivateOrderCmd)).Description("ActivateOrderCmd").
 		AddArgument("accno").AddArgument("order_id").
@@ -69,7 +69,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddArgument("currency").
 		AddArgument("volume").
 		Handler(makeHandler("PUT", "accounts/%v/orders/%v", []string{"accno", "order_id"},
-		[]string{"price", "currency", "volume"}))
+			[]string{"price", "currency", "volume"}))
 
 	defTransp.AddCommand(string(api.DeleteOrderCmd)).Description("DeleteOrderCmd").
 		AddArgument("accno").AddArgument("order_id").
@@ -103,7 +103,7 @@ func NewDefaultTransport(endpoint string, user, pass, rawPem []byte) (transp api
 		AddFullArgument("market_view", "Filter on market view", []string{"U", "D"}, true).
 		AddOptArgument("instrument_type").AddOptArgument("instrument_group_type").AddOptArgument("currency").
 		Handler(makeHandler("GET", "instruments/%v/leverages", []string{"instrument"},
-		[]string{"expiration_date", "issuer_id", "market_view", "instrument_type", "instrument_group_type", "currency"}))
+			[]string{"expiration_date", "issuer_id", "market_view", "instrument_type", "instrument_group_type", "currency"}))
 
 	defTransp.AddCommand(string(api.InstrumentLeverageFiltersCmd)).Description("InstrumentLeverageFiltersCmd").TTLHours(12).
 		AddArgument("instrument").Handler(makeHandler("GET", "instruments/%v/leverages/filters", []string{"instrument"}, []string{}))

@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/Forau/yanngo/nnutils"
 	"github.com/Forau/yanngo/swagger"
 
 	"fmt"
@@ -30,7 +31,9 @@ func (rb *RequestBuilder) Exec(res interface{}) error {
 }
 
 func (rb *RequestBuilder) S(key, val string) *RequestBuilder {
-	rb.req.Args[key] = val
+	if val != "" {
+		rb.req.Args[key] = val
+	}
 	return rb
 }
 func (rb *RequestBuilder) I(key string, val int64) *RequestBuilder {
@@ -46,12 +49,19 @@ func (rb *RequestBuilder) IA(key string, val []int64) *RequestBuilder {
 func (rb *RequestBuilder) F(key string, val float64) *RequestBuilder {
 	return rb.S(key, fmt.Sprintf("%f", val))
 }
+func (rb *RequestBuilder) Price(key string, val float64) *RequestBuilder {
+	return rb.S(key, nnutils.NewDefaultTickTableUtil().ToString(val))
+}
 func (rb *RequestBuilder) FA(key string, val []float64) *RequestBuilder {
 	valArr := []string{}
 	for _, v := range val {
 		valArr = append(valArr, fmt.Sprintf("%f", v))
 	}
 	return rb.S(key, strings.Join(valArr, ","))
+}
+
+func (rb *RequestBuilder) V(key string, val interface{}) *RequestBuilder {
+	return rb.S(key, fmt.Sprintf("%v", val))
 }
 
 type ApiClient struct {
@@ -118,7 +128,26 @@ type AccountOrder struct {
 	Reference           string          `json:"reference,omitempty"`
 	ActivationCondition OrderCondition  `json:"activation_condition,omitempty"`
 	TriggerCondition    OrderTriggerDir `json:"trigger_condition,omitempty"`
-	TargetValue         float64         `json:"target_value,omitempty"`
+	TriggerValue        float64         `json:"trigger_value,omitempty"`
+	//  	TriggerValue         float64         `json:"trigger_value,omitempty"`
+}
+
+func (ao AccountOrder) Apply(b *RequestBuilder) (ret *RequestBuilder) {
+	ret = b.I("accno", ao.Accno).
+		S("identifier", ao.Identifier).
+		I("market_id", ao.MarketId).
+		Price("price", ao.Price).
+		I("volume", ao.Volume).
+		S("side", string(ao.Side)).
+		S("currency", "SEK").
+		S("order_type", string(ao.OrderType))
+
+	if ao.OrderType == STOP_LIMIT || ao.OrderType == STOP_TRAILING || ao.OrderType == OCO {
+		ret = ret.S("activation_condition", string(ao.ActivationCondition)).
+			S("trigger_condition", string(ao.TriggerCondition)).
+			Price("trigger_value", ao.TriggerValue)
+	}
+	return
 }
 
 func (ac *ApiClient) Session() (res swagger.Login, err error) {
@@ -149,7 +178,8 @@ func (ac *ApiClient) CreateSimpleOrder(accno int64, identifier string, market in
 	return
 }
 func (ac *ApiClient) CreateOrder(order *AccountOrder) (res swagger.OrderReply, err error) {
-	err = ac.build(CreateOrderCmd).Exec(&res) // TODO
+	builder := ac.build(CreateOrderCmd)
+	err = order.Apply(builder).Exec(&res)
 	return
 }
 
@@ -185,16 +215,49 @@ func (ac *ApiClient) InstrumentSearch(query string) (res []swagger.Instrument, e
 	err = ac.build(InstrumentSearchCmd).S("query", query).Exec(&res)
 	return
 }
+
+// The advanced instrument search will page, and return the results in a chan. Ignoring error for now
+func (ac *ApiClient) InstrumentSearchStream(query, types string, fuzzy bool) (ret chan swagger.Instrument) {
+	ret = make(chan swagger.Instrument, 1)
+	//  err = make(chan error,1)
+
+	go func(size, page int64) {
+		defer close(ret)
+		//    defer close(err)
+
+		for {
+			var r []swagger.Instrument
+			if e := ac.build(InstrumentSearchCmd).S("query", query).S("instrument_group_type", types).
+				I("limit", size).I("offset", page).V("fuzzy", fuzzy).Exec(&r); e != nil {
+				fmt.Printf("UNCAUGHT ERROR: %+v\n", e)
+				return
+			} else {
+				for _, instr := range r {
+					ret <- instr
+				}
+				if l := int64(len(r)); l < size {
+					return
+				}
+				page += size
+			}
+
+		}
+	}(100, 0)
+	return ret
+}
+
 func (ac *ApiClient) Instruments(ids ...int64) (res []swagger.Instrument, err error) {
 	err = ac.build(InstrumentsCmd).IA("ids", ids).Exec(&res)
 	return
 }
 
-/*
-func (ac *ApiClient) InstrumentLeverages(pathMap{id int64})(res swagger.,err error) {
-  err = ac.build(InstrumentLeveragesCmd). &)
-  return
+func (ac *ApiClient) InstrumentLeverages(id int64, instrument_type, instrument_group_type string) (res []swagger.Instrument, err error) {
+	err = ac.build(InstrumentLeveragesCmd).I("instrument", id).S("instrument_type", instrument_type).
+		S("instrument_group_type", instrument_group_type).S("currency", "SEK").Exec(&res)
+	return
 }
+
+/*
 func (ac *ApiClient) InstrumentLeverageFilters(pathMap{id int64})(res swagger.,err error) {
   err = ac.build(InstrumentLeverageFiltersCmd). &)
   return
@@ -235,11 +298,11 @@ func (ac *ApiClient) InstrumentType(pathMap{pathMap{"Type",fmtInt}})(res swagger
   err = ac.build(InstrumentTypeCmd). &)
   return
 }
-func (ac *ApiClient) InstrumentUnderlyings(pathMap{pathMap{"Type",fmtInt},pathMap{"Currency",fmtInt}})(res swagger.,err error) {
-  err = ac.build(InstrumentUnderlyingsCmd). &)
-  return
-}
 */
+func (ac *ApiClient) InstrumentUnderlyings(typ, currency string) (res []swagger.Instrument, err error) {
+	err = ac.build(InstrumentUnderlyingsCmd).S("type", typ).S("currency", currency).Exec(&res)
+	return
+}
 
 func (ac *ApiClient) Lists() (res []swagger.List, err error) {
 	err = ac.build(ListsCmd).Exec(&res)

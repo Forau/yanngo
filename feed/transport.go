@@ -10,6 +10,8 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"sync/atomic"
+
 	"time"
 
 	"bytes"
@@ -152,6 +154,8 @@ type FeedState struct {
 	pubWriter, privWriter CmdWriter
 
 	tradeState tradeState
+
+	sendSeqId int64
 }
 
 func NewFeedTransport(dstChan remote.StreamTopicChannel) *FeedState {
@@ -231,13 +235,15 @@ func (fs *FeedState) sendCommand(cmd *feedmodel.FeedCmd) error {
 	}
 }
 
-func (fs *FeedState) sendToTopic(msg interface{}) {
+func (fs *FeedState) sendToTopic(msg *feedmodel.FeedMsg) {
+	msg.SeqId = atomic.AddInt64(&fs.sendSeqId, 1)
 	b, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling %+v: %+v", msg, err)
 	} else {
 		err := fs.dstChan(b)
-		log.Printf("Pub to Msg(%s) : %+v", string(b), err)
+		_ = err
+		// log.Printf("Pub to Msg(%s) : %+v", string(b), err)
 	}
 }
 
@@ -311,7 +317,7 @@ func (fs *FeedState) lastMsg(params api.Params) (json.RawMessage, error) {
 func (fs *FeedState) init() {
 	fs.AddCommand(string(api.FeedSubCmd)).Description("Subscribe to a feed").
 		AddFullArgument("type", "Type to subscribe to",
-		[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
+			[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
 		AddFullArgument("id", "Instrument id", []string{}, true).
 		AddFullArgument("market", "Market id", []string{}, true).
 		AddFullArgument("source", "News source", []string{}, true).
@@ -319,43 +325,43 @@ func (fs *FeedState) init() {
 
 	fs.AddCommand(string(api.FeedLastCmd)).Description("Last message from feed").
 		AddFullArgument("type", "Type to get message from",
-		[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
+			[]string{"price", "depth", "trade", "trading_status", "indicator", "news"}, false).
 		AddFullArgument("id", "Instrument id", []string{}, false).
 		AddFullArgument("market", "Market id", []string{}, false).
 		Handler(fs.lastMsg)
 
 	fs.AddCommand("FeedGetOrders").Description("Get the cached orders from feed").
 		Handler(func(params api.Params) (json.RawMessage, error) {
-		orders := fs.tradeState.getOrders()
-		return json.Marshal(orders)
-	})
+			orders := fs.tradeState.getOrders()
+			return json.Marshal(orders)
+		})
 
 	fs.AddCommand("FeedGetState").Description("Get the cached state from feed subscriptions").
 		AddFullArgument("id", "Instrument id filter", []string{}, true).
 		AddFullArgument("market", "Market id filter", []string{}, true).
 		Handler(func(params api.Params) (json.RawMessage, error) {
-		res := [](map[string]interface{}){}
-		id := params["id"]
-		market := params["market"]
-		for key, state := range fs.tradeState.state {
-			if (id == "" || id == key.I) && (market == "" || market == key.M) {
-				res = append(res, map[string]interface{}{"type": key.T, "data": state})
+			res := [](map[string]interface{}){}
+			id := params["id"]
+			market := params["market"]
+			for key, state := range fs.tradeState.state {
+				if (id == "" || id == key.I) && (market == "" || market == key.M) {
+					res = append(res, map[string]interface{}{"type": key.T, "data": state})
+				}
 			}
-		}
-		return json.Marshal(res)
-	})
+			return json.Marshal(res)
+		})
 
 	fs.AddCommand(string(api.FeedStatusCmd)).Description("Get some status").
 		Handler(func(params api.Params) (json.RawMessage, error) {
-		resMap := make(map[string]interface{})
-		for k, v := range fs.infoMap {
-			resMap[k] = v
-		}
-		resMap["subsctiptions"] = fs.subs
-		resMap["heartbeats"] = fs.hbt.Info()
-		resMap["state"] = fs.tradeState.Info()
+			resMap := make(map[string]interface{})
+			for k, v := range fs.infoMap {
+				resMap[k] = v
+			}
+			resMap["subsctiptions"] = fs.subs
+			resMap["heartbeats"] = fs.hbt.Info()
+			resMap["state"] = fs.tradeState.Info()
 
-		return json.Marshal(resMap)
-	})
+			return json.Marshal(resMap)
+		})
 
 }
