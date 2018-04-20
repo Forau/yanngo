@@ -197,7 +197,7 @@ func (rct RequestCommandTransport) Preform(req *Request) (res Response) {
 		}
 		res.Success(arr)
 	} else if cmd, ok := rct[req.Command]; ok {
-		if cmd.Handler != nil {
+		if cmd.HandlerFn != nil {
 			r, err := cmd.HandlerFn(req.Args)
 			if err != nil {
 				res.Fail(-16, err.Error())
