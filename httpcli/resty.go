@@ -96,7 +96,7 @@ func NewRestClient(uri string, user, pass, pem []byte) *RestClient {
 	})
 
 	rc.restyCli.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
-		fmt.Printf(">>> %p >>> %s %s: %v\n", r, r.Method, r.URL, r.RawRequest.Body)
+		fmt.Printf(">>> %p >>> %s %s: %v\n", r, r.Method, r.URL, r.RawRequest)
 		return nil
 	})
 	rc.restyCli.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {

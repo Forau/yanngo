@@ -96,7 +96,7 @@ func (nc *NsqConn) Pub(topic string, data []byte) error {
 				return // All well
 			}
 		}
-		log.Print("Trying to send data to '%s', but all %d produces failed", topic, len(nc.producers))
+		log.Printf("Trying to send data to '%s', but all %d produces failed", topic, len(nc.producers))
 	}(rnd.Perm(len(nc.producers)))
 	return nil // No errors for now....
 }

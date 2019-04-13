@@ -45,7 +45,7 @@ func TestOmxTradingInitWithString(t *testing.T) {
 		if d.Error && err != nil {
 			t.Logf("Got error as expected: %+v", err)
 		} else if d.Error && err == nil {
-			t.Errorf("Expected error, but didnt get any\n", d.Error, err)
+			t.Errorf("Expected error, but didnt get any.  %v, %v\n", d.Error, err)
 		} else if !d.Error && err != nil {
 			t.Errorf("Got unexpected error: %+v", err)
 		} else {

@@ -140,7 +140,7 @@ func TestConnectToFeed(t *testing.T) {
 		for {
 			buff := make([]byte, 1024)
 			n, err := c.Read(buff)
-			t.Log("Read %d bytes(%+v): %s", n, err, string(buff))
+			t.Logf("Read %d bytes(%+v): %s", n, err, string(buff))
 			if err != nil {
 				return
 			}
@@ -158,7 +158,7 @@ func TestConnectToFeed(t *testing.T) {
 		for {
 			buff := make([]byte, 1024)
 			n, err := c.Read(buff)
-			t.Log("Read %d bytes(%+v): %s", n, err, string(buff))
+			t.Logf("Read %d bytes(%+v): %s", n, err, string(buff))
 			if err != nil {
 				return
 			}

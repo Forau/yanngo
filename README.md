@@ -1,6 +1,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Forau/yanngo)](https://goreportcard.com/report/github.com/Forau/yanngo)
 [![Build Status](https://travis-ci.org/Forau/yanngo.svg?branch=master)](https://travis-ci.org/Forau/yanngo)
-# yanngo
+# yanngo  _(DEPRICATED)_
+
 Yet Another NordNet Go API
 
 Inspired by https://github.com/denro/nordnet, but will have changes in the api to make it easier to rpc, and aggregate some logic.
